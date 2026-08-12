@@ -1,3 +1,4 @@
+import { DemoTrack, DEMO_TRACKS } from "../lib/demoTracks";
 import { SCENE_URLS } from "../lib/scenery";
 import { DIRECTIONS, Direction, SCENES, SceneId, Settings, WAVEFORMS, Waveform } from "../types";
 
@@ -43,9 +44,11 @@ interface Props {
   activePreset: string;
   randomPalette: () => void;
   audioName: string | null;
+  audioCredit: string | null;
   audioPlaying: boolean;
   onAudioFile: (file: File) => void;
   onToggleAudioPlay: () => void;
+  onSelectDemo: (track: DemoTrack) => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -145,9 +148,11 @@ export default function Sidebar({
   activePreset,
   randomPalette,
   audioName,
+  audioCredit,
   audioPlaying,
   onAudioFile,
   onToggleAudioPlay,
+  onSelectDemo,
 }: Props) {
   const s = settings;
   return (
@@ -233,13 +238,52 @@ export default function Sidebar({
       </Section>
 
       <Section title="Musik-Synchronisation">
+        <div className="relative mb-2.5">
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const track = DEMO_TRACKS.find((t) => t.id === e.target.value);
+              if (track) onSelectDemo(track);
+              e.target.value = "";
+            }}
+            className="w-full cursor-pointer appearance-none rounded-md border border-white/10 bg-white/4 px-3 py-2 pr-8 text-[12px] text-slate-100 outline-none transition hover:border-emerald-400/40 focus:border-emerald-400/60"
+          >
+            <option value="" disabled>
+              Schnell ausprobieren…
+            </option>
+            <optgroup label="Echte Aufnahmen (gemeinfrei)">
+              {DEMO_TRACKS.filter((t) => t.kind === "file").map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label} · {t.genre}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Eigene Klang-Loops">
+              {DEMO_TRACKS.filter((t) => t.kind === "generated").map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label} · {t.genre}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <svg
+            className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+
         <label className="flex cursor-pointer items-center gap-2 rounded-md border border-white/10 bg-white/4 px-3 py-2 text-[12px] text-slate-200 transition hover:border-emerald-400/40 hover:text-emerald-200">
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M9 18V5l11-2v13" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx="6" cy="18" r="3" />
             <circle cx="18" cy="16" r="3" />
           </svg>
-          <span className="truncate">{audioName ?? "Musikdatei wählen…"}</span>
+          <span className="truncate">{audioName ?? "…oder eigene Musikdatei wählen"}</span>
           <input
             type="file"
             accept="audio/*"
@@ -271,8 +315,10 @@ export default function Sidebar({
           </button>
         )}
 
+        {audioCredit && <p className="mt-2 text-[9px] leading-relaxed text-slate-600">{audioCredit}</p>}
+
         <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-          Bass, Mitten und Höhen der geladenen Datei steuern live Helligkeit, Verwirbelung und Tempo der Girlanden.
+          Bass, Mitten und Höhen des laufenden Stücks steuern live Helligkeit, Verwirbelung und Tempo der Girlanden.
         </p>
       </Section>
 

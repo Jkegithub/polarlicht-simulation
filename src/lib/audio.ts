@@ -1,3 +1,6 @@
+import { GeneratorId } from "./demoTracks";
+import { RunningGenerator, startGenerator } from "./generators";
+
 export interface AudioLevels {
   bass: number;
   mid: number;
@@ -9,13 +12,16 @@ export interface AudioLevels {
 // Wraps a single, persistent <audio> element in a Web Audio analyser graph.
 // createMediaElementSource may only be called once per element, so one
 // AudioReactor is bound to one element for its whole lifetime; changing
-// tracks just swaps el.src.
+// file/demo tracks just swaps el.src. Synthesized demo loops (see
+// generators.ts) feed into the same analyser via a separate node instead,
+// so both source kinds drive the same reactive pipeline.
 export class AudioReactor {
   private ctx: AudioContext;
   private analyser: AnalyserNode;
   private freq: Uint8Array<ArrayBuffer>;
   private smoothed: AudioLevels = { bass: 0, mid: 0, treble: 0, overall: 0, punch: 0 };
   private prevBass = 0;
+  private activeGenerator: RunningGenerator | null = null;
 
   constructor(el: HTMLMediaElement) {
     this.ctx = new AudioContext();
@@ -30,6 +36,16 @@ export class AudioReactor {
 
   resume() {
     if (this.ctx.state === "suspended") this.ctx.resume();
+  }
+
+  playGenerated(kind: GeneratorId) {
+    this.activeGenerator?.stop();
+    this.activeGenerator = startGenerator(this.ctx, this.analyser, kind);
+  }
+
+  stopGenerated() {
+    this.activeGenerator?.stop();
+    this.activeGenerator = null;
   }
 
   update(): AudioLevels {
@@ -67,6 +83,7 @@ export class AudioReactor {
   }
 
   dispose() {
+    this.activeGenerator?.stop();
     this.analyser.disconnect();
     this.ctx.close();
   }

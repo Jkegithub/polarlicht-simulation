@@ -3,6 +3,7 @@ import AuroraCanvas from "./components/AuroraCanvas";
 import Dashboard from "./components/Dashboard";
 import Sidebar from "./components/Sidebar";
 import { AudioReactor } from "./lib/audio";
+import { DemoTrack, GeneratorId } from "./lib/demoTracks";
 import { Metrics } from "./lib/renderer";
 import { randomPalette as makePalette } from "./lib/noise";
 import { DEFAULT_SETTINGS, PRESETS, Settings, WAVEFORMS } from "./types";
@@ -34,7 +35,11 @@ export default function App() {
   const audioReactorRef = useRef<AudioReactor | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const [audioName, setAudioName] = useState<string | null>(null);
+  const [audioCredit, setAudioCredit] = useState<string | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [activeGenId, setActiveGenId] = useState<GeneratorId | null>(null);
+  const activeGenIdRef = useRef<GeneratorId | null>(null);
+  activeGenIdRef.current = activeGenId;
 
   useEffect(() => {
     return () => {
@@ -43,26 +48,82 @@ export default function App() {
     };
   }, []);
 
-  const onAudioFile = useCallback((file: File) => {
+  const ensureReactor = useCallback(() => {
     const el = audioElRef.current;
-    if (!el) return;
-    if (!audioReactorRef.current) audioReactorRef.current = new AudioReactor(el);
-    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
-    const url = URL.createObjectURL(file);
-    audioUrlRef.current = url;
-    el.src = url;
-    setAudioName(file.name);
-    audioReactorRef.current.resume();
-    el.play().catch(() => {});
+    if (el && !audioReactorRef.current) audioReactorRef.current = new AudioReactor(el);
+    return audioReactorRef.current;
   }, []);
 
+  const onAudioFile = useCallback(
+    (file: File) => {
+      const el = audioElRef.current;
+      const reactor = ensureReactor();
+      if (!el || !reactor) return;
+      reactor.stopGenerated();
+      activeGenIdRef.current = null;
+      setActiveGenId(null);
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      const url = URL.createObjectURL(file);
+      audioUrlRef.current = url;
+      el.src = url;
+      setAudioName(file.name);
+      setAudioCredit(null);
+      reactor.resume();
+      el.play().catch(() => {});
+    },
+    [ensureReactor],
+  );
+
+  const onSelectDemo = useCallback(
+    (track: DemoTrack) => {
+      const reactor = ensureReactor();
+      const el = audioElRef.current;
+      if (!reactor || !el) return;
+      reactor.resume();
+      if (track.kind === "file") {
+        reactor.stopGenerated();
+        activeGenIdRef.current = null;
+        setActiveGenId(null);
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+        el.src = track.url!;
+        setAudioName(track.label);
+        setAudioCredit(track.credit ?? null);
+        el.play().catch(() => {});
+      } else {
+        el.pause();
+        reactor.playGenerated(track.id as GeneratorId);
+        activeGenIdRef.current = track.id as GeneratorId;
+        setActiveGenId(track.id as GeneratorId);
+        setAudioName(track.label);
+        setAudioCredit(null);
+        setAudioPlaying(true);
+      }
+    },
+    [ensureReactor],
+  );
+
   const onToggleAudioPlay = useCallback(() => {
+    const reactor = audioReactorRef.current;
+    if (activeGenId) {
+      if (audioPlaying) {
+        reactor?.stopGenerated();
+        setAudioPlaying(false);
+      } else {
+        reactor?.resume();
+        reactor?.playGenerated(activeGenId);
+        setAudioPlaying(true);
+      }
+      return;
+    }
     const el = audioElRef.current;
     if (!el || !audioName) return;
-    audioReactorRef.current?.resume();
+    reactor?.resume();
     if (el.paused) el.play().catch(() => {});
     else el.pause();
-  }, [audioName]);
+  }, [activeGenId, audioPlaying, audioName]);
 
   const patch = useCallback((p: Partial<Settings>) => {
     setSettings((s) => ({ ...s, ...p }));
@@ -127,9 +188,9 @@ export default function App() {
       <audio
         ref={audioElRef}
         className="hidden"
-        onPlay={() => setAudioPlaying(true)}
-        onPause={() => setAudioPlaying(false)}
-        onEnded={() => setAudioPlaying(false)}
+        onPlay={() => { if (!activeGenIdRef.current) setAudioPlaying(true); }}
+        onPause={() => { if (!activeGenIdRef.current) setAudioPlaying(false); }}
+        onEnded={() => { if (!activeGenIdRef.current) setAudioPlaying(false); }}
       />
 
       {/* top right tools */}
@@ -185,9 +246,11 @@ export default function App() {
             activePreset={activePreset}
             randomPalette={() => patch({ palette: makePalette() })}
             audioName={audioName}
+            audioCredit={audioCredit}
             audioPlaying={audioPlaying}
             onAudioFile={onAudioFile}
             onToggleAudioPlay={onToggleAudioPlay}
+            onSelectDemo={onSelectDemo}
           />
         </div>
       )}
