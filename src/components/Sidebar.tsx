@@ -277,13 +277,40 @@ export default function Sidebar({
           </svg>
         </div>
 
+        {audioName && (
+          <div className="mb-2.5 rounded-md border border-emerald-400/20 bg-emerald-400/5 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-[12px] text-emerald-200" title={audioName}>
+                {audioName}
+              </span>
+              <button
+                onClick={onToggleAudioPlay}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-emerald-400/30 bg-emerald-400/10 text-emerald-300 transition hover:bg-emerald-400/20"
+                title={audioPlaying ? "Pause" : "Abspielen"}
+              >
+                {audioPlaying ? (
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
+                    <rect x="6" y="5" width="4" height="14" rx="1" />
+                    <rect x="14" y="5" width="4" height="14" rx="1" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
+                    <path d="M8 5l11 7-11 7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {audioCredit && <p className="mt-1 text-[9px] leading-relaxed text-slate-600">{audioCredit}</p>}
+          </div>
+        )}
+
         <label className="flex cursor-pointer items-center gap-2 rounded-md border border-white/10 bg-white/4 px-3 py-2 text-[12px] text-slate-200 transition hover:border-emerald-400/40 hover:text-emerald-200">
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M9 18V5l11-2v13" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx="6" cy="18" r="3" />
             <circle cx="18" cy="16" r="3" />
           </svg>
-          <span className="truncate">{audioName ?? "…oder eigene Musikdatei wählen"}</span>
+          <span className="truncate">Eigene Musikdatei wählen</span>
           <input
             type="file"
             accept="audio/*"
@@ -295,27 +322,6 @@ export default function Sidebar({
             }}
           />
         </label>
-
-        {audioName && (
-          <button
-            onClick={onToggleAudioPlay}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12px] text-emerald-300 transition hover:bg-emerald-400/20"
-          >
-            {audioPlaying ? (
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-                <rect x="6" y="5" width="4" height="14" rx="1" />
-                <rect x="14" y="5" width="4" height="14" rx="1" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-                <path d="M8 5l11 7-11 7z" />
-              </svg>
-            )}
-            {audioPlaying ? "Pause" : "Abspielen"}
-          </button>
-        )}
-
-        {audioCredit && <p className="mt-2 text-[9px] leading-relaxed text-slate-600">{audioCredit}</p>}
 
         <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
           Bass, Mitten und Höhen des laufenden Stücks steuern live Helligkeit, Verwirbelung und Tempo der Girlanden.
