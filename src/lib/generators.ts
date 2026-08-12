@@ -13,7 +13,7 @@ const SCALE_MAJ = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25];
 // track. Entirely original per-run audio - no sample or recording involved.
 export function startGenerator(ctx: AudioContext, out: AudioNode, kind: GeneratorId): RunningGenerator {
   const master = ctx.createGain();
-  master.gain.value = 0.32;
+  master.gain.value = 0.65;
 
   // Gentle master lowpass so raw oscillator harmonics (esp. saw/square) don't
   // buzz - takes the edge off without making everything sound muffled.
@@ -45,6 +45,9 @@ export function startGenerator(ctx: AudioContext, out: AudioNode, kind: Generato
 
   let stopped = false;
   let timer: ReturnType<typeof setTimeout>;
+
+  // +-15% random velocity spread so repeated notes aren't all identically loud.
+  const vel = (base: number, spread = 0.15) => base * (1 - spread + Math.random() * spread * 2);
 
   // One note = two slightly detuned unison oscillators through a filter whose
   // cutoff opens on attack and eases back down - a small, standard trick that
@@ -113,31 +116,70 @@ export function startGenerator(ctx: AudioContext, out: AudioNode, kind: Generato
     src.start(t);
   };
 
+  let loopIndex = 0;
+
   function scheduleLoop(loopStart: number) {
     if (stopped) return;
     let loopLen = 4;
+    const li = loopIndex++;
 
     if (kind === "ambient") {
       loopLen = 8;
-      [0, 2, 4, 7].forEach((deg, i) => tone(loopStart + i * 2, SCALE_MIN[deg] / 2, 3.5, "sine", 0.42));
+      // Alternate between two chord voicings every other loop instead of
+      // freezing on one forever, plus a sparse high "shimmer" note that
+      // doesn't play every time - small variation reads as alive, not looping.
+      const chord = li % 2 === 0 ? [0, 2, 4, 7] : [0, 3, 5, 7];
+      chord.forEach((deg, i) => {
+        const humanize = (Math.random() - 0.5) * 0.4;
+        tone(Math.max(ctx.currentTime, loopStart + i * 2 + humanize), SCALE_MIN[deg] / 2, 3.7, "sine", vel(0.85, 0.25));
+      });
+      if (li % 3 !== 0) {
+        const deg = chord[Math.floor(Math.random() * chord.length)];
+        tone(loopStart + 3 + Math.random() * 3.5, SCALE_MIN[deg] * 2, 2.4, "triangle", vel(0.35, 0.3));
+      }
     } else if (kind === "electro") {
       loopLen = 4;
       const step = loopLen / 8;
-      [0, 0, 3, 0, 0, 5, 3, 0].forEach((deg, i) => tone(loopStart + i * step, SCALE_MIN[deg] / 4, step * 0.8, "sawtooth", 0.3));
-      for (let i = 0; i < 16; i++) hit(loopStart + i * (loopLen / 16), 0.035, 0.14, 7500, 1.4);
+      const bassA = [0, 0, 3, 0, 0, 5, 3, 0];
+      const bassB = [0, 3, 0, 5, 0, 3, 7, 5];
+      const bass = li % 4 < 2 ? bassA : bassB;
+      bass.forEach((deg, i) => tone(loopStart + i * step, SCALE_MIN[deg] / 4, step * 0.8, "sawtooth", vel(0.6)));
+      for (let i = 0; i < 16; i++) {
+        const accent = i % 4 === 0;
+        hit(loopStart + i * (loopLen / 16), 0.035, vel(accent ? 0.36 : 0.16, 0.2), accent ? 9000 : 7000, 1.4);
+      }
+      // Every 4th loop, a short lead phrase on top so it's not just the same
+      // bassline forever.
+      if (li % 4 === 3) {
+        [4, 7, 6, 4].forEach((deg, i) => tone(loopStart + 2 + i * 0.4, SCALE_MIN[deg], 0.35, "square", vel(0.4)));
+      }
     } else if (kind === "arpeggio") {
       loopLen = 4;
-      const arp = [0, 2, 4, 7, 4, 2];
-      const step = loopLen / arp.length;
-      arp.forEach((deg, i) => tone(loopStart + i * step, SCALE_MAJ[deg], step * 0.9, "triangle", 0.3));
+      // Rotate through a little 3-part progression across loops instead of
+      // arpeggiating the exact same chord forever, with a sustained bass note
+      // underneath for harmonic grounding.
+      const progressions = [
+        { bass: 0, notes: [0, 2, 4, 7, 4, 2] },
+        { bass: 3, notes: [3, 5, 7, 5, 3, 1] },
+        { bass: 4, notes: [4, 6, 1, 6, 4, 2] },
+      ];
+      const prog = progressions[li % progressions.length];
+      const step = loopLen / prog.notes.length;
+      prog.notes.forEach((deg, i) => tone(loopStart + i * step, SCALE_MAJ[deg], step * 0.9, "triangle", vel(0.55)));
+      tone(loopStart, SCALE_MAJ[prog.bass] / 2, loopLen * 0.95, "sine", vel(0.3, 0.1));
     } else if (kind === "rock") {
       loopLen = 4;
       const step = loopLen / 8;
+      // Alternate a plain groove with a slightly busier "fill" every other
+      // loop, and occasionally walk the bass to a different scale degree.
+      const fill = li % 2 === 1;
+      const bassDeg = li % 8 === 7 ? 3 : 0;
       for (let i = 0; i < 8; i++) {
-        if (i % 2 === 0) tone(loopStart + i * step, SCALE_MIN[0] / 4, step * 0.6, "square", 0.26);
+        if (i % 2 === 0 || (fill && i === 5)) tone(loopStart + i * step, SCALE_MIN[bassDeg] / 4, step * 0.6, "square", vel(0.55));
         const accent = i % 4 === 2;
-        if (accent) kick(loopStart + i * step, 0.22, 0.5);
-        else hit(loopStart + i * step, 0.045, 0.11, 6500, 1.6);
+        if (accent) kick(loopStart + i * step, 0.22, vel(0.85, 0.1));
+        else hit(loopStart + i * step, 0.045, vel(0.22, 0.3), 6500, 1.6);
+        if (fill && i === 6) hit(loopStart + i * step + step * 0.5, 0.06, 0.3, 3200, 1.1);
       }
     }
 
