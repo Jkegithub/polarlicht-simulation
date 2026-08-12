@@ -172,25 +172,25 @@ export default function Dashboard(props: Props) {
         </span>
       </div>
 
-      {/* panels */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Card title="Intensität über Zeit">
+      {/* panels: horizontal swipe strip on mobile, full grid from lg up */}
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
+        <Card title="Intensität über Zeit" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink">
           <div className="mb-1 text-right text-[13px] font-semibold text-emerald-300">
             {Math.round(metrics.intensity * 100)}%
           </div>
           <Sparkline data={history} />
         </Card>
 
-        <Card title="Aktivität Level (Kp)">
+        <Card title="Aktivität Level (Kp)" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink">
           <div className="mb-1 text-right text-[13px] font-semibold text-emerald-300">{metrics.kp.toFixed(1)}</div>
           <Bars data={kpHistory} />
         </Card>
 
-        <Card title="Farben Verteilung">
+        <Card title="Farben Verteilung" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink">
           <Donut dist={metrics.distribution} palette={settings.palette} />
         </Card>
 
-        <Card title="Oval Form">
+        <Card title="Oval Form" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink">
           <svg viewBox="0 0 150 74" className="h-[54px] w-full">
             <g transform={`translate(75 37) rotate(${tilt})`}>
               {[1, 0.72, 0.46, 0.24].map((k, i) => (
@@ -213,7 +213,7 @@ export default function Dashboard(props: Props) {
           </div>
         </Card>
 
-        <Card title="Vorschau Variationen" className="col-span-2 lg:col-span-1">
+        <Card title="Vorschau Variationen" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink lg:col-span-1">
           <div className="grid grid-cols-3 gap-1.5">
             {VARIATION_PALETTES.map((v) => (
               <button

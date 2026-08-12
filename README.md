@@ -2,6 +2,8 @@
 
 Eine interaktive Aurora-Borealis-Simulation im Browser — reines Canvas-2D-Rendering, kein WebGL, kein externes Asset-Loading nach dem Build.
 
+**Live:** https://jkegithub.github.io/polarlicht-simulation/
+
 ## Features
 
 - Prozedurale Polarlicht-Bänder (Value-Noise/FBM), live steuerbar über Intensität, Aktivität, Farbvielfalt, Bewegung, Zufälligkeit, Bandanzahl, Geschwindigkeit, Richtung und Wellenform
@@ -24,6 +26,10 @@ npm run dev      # Dev-Server
 npm run build    # Produktionsbuild -> dist/index.html (single file)
 npm run preview  # Build lokal testen
 ```
+
+## Deployment
+
+Jeder Push auf `main` baut automatisch (GitHub Actions, [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml)) und veröffentlicht `dist/index.html` auf GitHub Pages.
 
 ## Lizenz
 

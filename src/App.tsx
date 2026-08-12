@@ -14,7 +14,9 @@ export default function App() {
   const [activePreset, setActivePreset] = useState("Dynamisch");
   const [seedKey, setSeedKey] = useState(0);
   const [scrubTo, setScrubTo] = useState<{ t: number; k: number } | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches,
+  );
 
   const [metrics, setMetrics] = useState<Metrics>({
     intensity: 0.85,
@@ -86,33 +88,51 @@ export default function App() {
       </div>
 
       {/* top right tools */}
-      <div className="absolute right-4 top-4 z-20 flex gap-2">
+      <div className="absolute right-2 top-2 z-40 flex gap-1.5 sm:right-4 sm:top-4 sm:gap-2">
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="panel rounded-lg px-3 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300"
+          title={sidebarOpen ? "Panel ausblenden" : "Panel einblenden"}
+          className="panel flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300 sm:px-3"
         >
-          {sidebarOpen ? "Panel ausblenden" : "Panel einblenden"}
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="4" y1="7" x2="20" y2="7" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="17" x2="14" y2="17" />
+          </svg>
+          <span className="hidden sm:inline">{sidebarOpen ? "Panel ausblenden" : "Panel einblenden"}</span>
         </button>
         <button
           onClick={() => setSeedKey((k) => k + 1)}
-          className="panel rounded-lg px-3 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300"
+          title="Neu würfeln"
+          className="panel flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300 sm:px-3"
         >
-          Neu würfeln
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="4" y="4" width="16" height="16" rx="3" />
+            <circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+            <circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none" />
+          </svg>
+          <span className="hidden sm:inline">Neu würfeln</span>
         </button>
         <button
           onClick={snapshot}
-          className="panel rounded-lg px-3 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300"
+          title="Foto speichern"
+          className="panel flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300 sm:px-3"
         >
-          Foto speichern
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M9 4L7.5 6H4a1 1 0 00-1 1v11a1 1 0 001 1h16a1 1 0 001-1V7a1 1 0 00-1-1h-3.5L15 4H9z" />
+            <circle cx="12" cy="13" r="3.4" />
+          </svg>
+          <span className="hidden sm:inline">Foto speichern</span>
         </button>
-        <div className="panel rounded-lg px-3 py-1.5 text-[11px] tabular-nums text-emerald-300/80">
+        <div className="panel flex items-center rounded-lg px-2 py-1.5 text-[11px] tabular-nums text-emerald-300/80 sm:px-3">
           {Math.round(metrics.fps)} fps
         </div>
       </div>
 
       {/* sidebar */}
       {sidebarOpen && (
-        <div className="absolute bottom-3 left-3 top-3 z-30 block max-w-[86vw]">
+        <div className="absolute bottom-3 left-3 top-16 z-30 block max-w-[86vw] sm:top-3">
           <Sidebar
             settings={settings}
             patch={patch}
