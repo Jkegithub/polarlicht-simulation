@@ -225,7 +225,14 @@ export class AuroraRenderer {
     const st = WAVE_STYLES[s.waveform] ?? WAVE_STYLES.dynamisch;
 
     const wind = s.direction === "sued" || s.direction === "west" ? -1 : 1;
-    const windLateral = s.direction === "ost" || s.direction === "west" ? 1.3 : 0.45;
+    // Ost/West: every band ripples in lock-step the same way (strong, unmistakable
+    // sideways flow) instead of each band's wave picking its own random direction.
+    // Nord/Süd: bands fan outward toward the viewer (Süd) or converge toward a
+    // vanishing point (Nord), scaled by each band's existing depth ordering.
+    const lateralDir = s.direction === "ost" ? 1 : s.direction === "west" ? -1 : 0;
+    const perspDir = s.direction === "sued" ? 1 : s.direction === "nord" ? -1 : 0;
+    const flowDir = lateralDir !== 0 ? lateralDir : wind;
+    const windLateral = lateralDir !== 0 ? 2.1 : 0.4;
 
     const pal = s.palette.map(hexToRgb);
     const N = Math.max(320, Math.min(760, Math.round(W / 1.7)));
@@ -242,7 +249,7 @@ export class AuroraRenderer {
     const yLimit = H * 0.98;
 
     // Coronal high-altitude wash
-    this.drawHighAltitudeWash(ctx, W, H, t, pal, inten, variety, mov, rnd, wind);
+    this.drawHighAltitudeWash(ctx, W, H, t, pal, inten, variety, mov, rnd, flowDir);
 
     for (let c = 0; c < s.bands; c++) {
       const cs = c * 17.31 + this.seed;
@@ -290,15 +297,22 @@ export class AuroraRenderer {
       g.addColorStop(k(0.03), rgba(bottomColor, 0.9 * inten));
       g.addColorStop(1, rgba(bottomColor, 0));
 
-      const span = W * (1.75 + depth * 0.6);
-      const yCentre = H * (0.15 + depth * 0.36 + jit * 0.1);
+      // perspFan: the whole curtain fans wider/taller (Süd - rushing toward
+      // the viewer) or narrower/shorter (Nord - receding toward a vanishing
+      // point). A flat baseline shift makes this obvious on every band, not
+      // just the back ones; the depth-scaled part adds extra spread on top
+      // for the bands furthest along the existing depth ordering. Zero for
+      // Ost/West, which use localDir instead.
+      const perspFan = 1 + perspDir * (0.35 + depth * 0.35);
+      const span = W * (1.75 + depth * 0.6) * perspFan;
+      const yCentre = H * (0.15 + depth * 0.36 + jit * 0.1) + perspDir * (0.1 + depth * 0.1) * H;
       const yRange = H * (0.34 + jit2 * 0.22);
-      const height = H * (0.32 + jit2 * 0.26) * (0.65 + 0.7 * intenPow) * (1 - depth * 0.16);
+      const height = H * (0.32 + jit2 * 0.26) * (0.65 + 0.7 * intenPow) * (1 - depth * 0.16) * (1 + perspDir * (0.25 + depth * 0.3));
 
       const bandDir = jit3 > 0.5 ? 1 : -1;
-      const localDir = wind * 0.38 + bandDir * (0.85 + 0.4 * hash1(cs * 9.3));
+      const localDir = lateralDir !== 0 ? lateralDir : wind * 0.38 + bandDir * (0.85 + 0.4 * hash1(cs * 9.3));
       const w1 = (0.32 + mov * 1.05) * st.travel;
-      const foldAmp = W * 0.2 * st.foldA * (0.4 + act * 1.25) * persp;
+      const foldAmp = W * 0.2 * st.foldA * (0.4 + act * 1.25) * persp * (1 + perspDir * (0.15 + depth * 0.2));
 
       const swim =
         (Math.sin(t * (0.05 + mov * 0.09) * localDir + jit * 6.3) * 0.58 +
