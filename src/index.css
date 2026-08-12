@@ -95,4 +95,12 @@ input[type="range"].aur::-moz-range-thumb {
 
 select option {
   background: #0b1119;
+  color: #e2e8f0;
+}
+
+select optgroup {
+  background: #0b1119;
+  color: #64748b;
+  font-style: normal;
+  font-weight: 600;
 }
