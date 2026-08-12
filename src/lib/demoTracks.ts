@@ -19,7 +19,7 @@ export const DEMO_TRACKS: DemoTrack[] = [
     label: "J.S. Bach – Goldberg-Variationen, Nr. 4",
     genre: "Barock",
     kind: "file",
-    url: "/audio/bach-goldberg-variation4.ogg",
+    url: "audio/bach-goldberg-variation4.ogg",
     credit: "Aufnahme: Musopen Kickstarter Project (gemeinfrei) · archive.org/details/MusopenCollectionAsFlac",
   },
   {
@@ -27,7 +27,7 @@ export const DEMO_TRACKS: DemoTrack[] = [
     label: "Haydn – Streichquartett „Die Lerche“, Finale",
     genre: "Klassik",
     kind: "file",
-    url: "/audio/haydn-lark-finale.ogg",
+    url: "audio/haydn-lark-finale.ogg",
     credit: "Aufnahme: Musopen Kickstarter Project (gemeinfrei) · archive.org/details/MusopenCollectionAsFlac",
   },
   {
@@ -35,7 +35,7 @@ export const DEMO_TRACKS: DemoTrack[] = [
     label: "Borodin – Streichquartett Nr. 1, Scherzo",
     genre: "Romantik",
     kind: "file",
-    url: "/audio/borodin-scherzo.ogg",
+    url: "audio/borodin-scherzo.ogg",
     credit: "Aufnahme: Musopen Kickstarter Project (gemeinfrei) · archive.org/details/MusopenCollectionAsFlac",
   },
   { id: "ambient", label: "Ambient Drift", genre: "Ambient · eigener Loop", kind: "generated" },
