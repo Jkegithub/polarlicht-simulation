@@ -77,11 +77,11 @@ function Sparkline({ data }: { data: number[] }) {
 
 function Bars({ data }: { data: number[] }) {
   return (
-    <div className="flex h-[46px] items-end gap-[2px]">
+    <div className="flex h-[46px] items-end gap-0.5">
       {data.map((v, i) => (
         <div
           key={i}
-          className="flex-1 rounded-[1px] bg-gradient-to-t from-emerald-600/50 to-emerald-300"
+          className="flex-1 rounded-[1px] bg-linear-to-t from-emerald-600/50 to-emerald-300"
           style={{ height: `${Math.max(4, (v / 9) * 100)}%` }}
         />
       ))}
@@ -222,7 +222,7 @@ export default function Dashboard(props: Props) {
                 title={v.name}
                 className="group relative h-[38px] overflow-hidden rounded-md ring-1 ring-white/10 transition hover:ring-emerald-400/70"
               >
-                <div className={`absolute inset-0 bg-gradient-to-b ${v.hint}`} />
+                <div className={`absolute inset-0 bg-linear-to-b ${v.hint}`} />
                 <div
                   className="absolute inset-x-0 top-1 h-4 opacity-80 blur-[3px]"
                   style={{
@@ -230,12 +230,12 @@ export default function Dashboard(props: Props) {
                   }}
                 />
                 <div
-                  className="absolute inset-x-0 top-3.5 h-3 opacity-70 blur-[4px]"
+                  className="absolute inset-x-0 top-3.5 h-3 opacity-70 blur-xs"
                   style={{
                     background: `linear-gradient(90deg, transparent, ${v.palette[2]}, transparent)`,
                   }}
                 />
-                <span className="absolute bottom-0 left-0 right-0 bg-black/45 py-[1px] text-[8px] text-slate-200 opacity-0 transition group-hover:opacity-100">
+                <span className="absolute bottom-0 left-0 right-0 bg-black/45 py-px text-[8px] text-slate-200 opacity-0 transition group-hover:opacity-100">
                   {v.name}
                 </span>
               </button>
