@@ -1,4 +1,5 @@
 import { Settings } from "../types";
+import { AudioLevels } from "./audio";
 import { fbm1, fbm2, hash1, hexToRgb, mixRgb, rgba, valueNoise1 } from "./noise";
 import { getCached, loadScenery, Scenery } from "./scenery";
 
@@ -41,6 +42,7 @@ export class AuroraRenderer {
   settings: Settings;
   time = 0;
   seed = 1;
+  audio: AudioLevels | null = null;
 
   W = 0;
   H = 0;
@@ -95,6 +97,10 @@ export class AuroraRenderer {
     this.settings = s;
     if (sceneChanged) this.loadScene();
     if (starsChanged) this.buildStars();
+  }
+
+  setAudioLevels(levels: AudioLevels | null) {
+    this.audio = levels;
   }
 
   private loadScene() {
@@ -209,9 +215,11 @@ export class AuroraRenderer {
 
     const t = this.time;
     const intenPow = Math.pow(s.intensity / 100, 0.55);
-    const inten = 0.6 + 0.75 * intenPow;
-    const act = s.activity / 100;
-    const mov = s.movement / 100;
+    const audio = this.audio;
+    const audioBoost = audio ? clamp(0.5 + 1.1 * audio.bass + 0.6 * audio.punch, 0.15, 2.2) : 1;
+    const inten = (0.6 + 0.75 * intenPow) * audioBoost;
+    const act = audio ? clamp((s.activity / 100) * (0.5 + 1.3 * audio.mid), 0, 1.6) : s.activity / 100;
+    const mov = audio ? clamp((s.movement / 100) * (0.6 + 1.1 * audio.treble), 0, 2) : s.movement / 100;
     const rnd = s.randomness / 100;
     const variety = s.colorVariety / 100;
     const st = WAVE_STYLES[s.waveform] ?? WAVE_STYLES.dynamisch;
@@ -337,7 +345,7 @@ export class AuroraRenderer {
 
       // rasterise
       const refDx = (span * persp) / N;
-      const baseA = (1.3 - depth * 0.28) * (0.75 + 0.9 * intenPow);
+      const baseA = (1.3 - depth * 0.28) * (0.75 + 0.9 * intenPow) * audioBoost;
       for (let i = 1; i <= N; i++) {
         const u = (i - 0.5) / N;
         const x = bx[i];

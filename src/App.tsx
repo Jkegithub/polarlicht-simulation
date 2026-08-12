@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AuroraCanvas from "./components/AuroraCanvas";
 import Dashboard from "./components/Dashboard";
 import Sidebar from "./components/Sidebar";
+import { AudioReactor } from "./lib/audio";
 import { Metrics } from "./lib/renderer";
 import { randomPalette as makePalette } from "./lib/noise";
 import { DEFAULT_SETTINGS, PRESETS, Settings, WAVEFORMS } from "./types";
@@ -28,6 +29,40 @@ export default function App() {
   const [history, setHistory] = useState<number[]>(() => Array(64).fill(0.5));
   const [kpHistory, setKpHistory] = useState<number[]>(() => Array(36).fill(4));
   const scrubK = useRef(0);
+
+  const audioElRef = useRef<HTMLAudioElement>(null);
+  const audioReactorRef = useRef<AudioReactor | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const [audioName, setAudioName] = useState<string | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      audioReactorRef.current?.dispose();
+    };
+  }, []);
+
+  const onAudioFile = useCallback((file: File) => {
+    const el = audioElRef.current;
+    if (!el) return;
+    if (!audioReactorRef.current) audioReactorRef.current = new AudioReactor(el);
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    const url = URL.createObjectURL(file);
+    audioUrlRef.current = url;
+    el.src = url;
+    setAudioName(file.name);
+    audioReactorRef.current.resume();
+    el.play().catch(() => {});
+  }, []);
+
+  const onToggleAudioPlay = useCallback(() => {
+    const el = audioElRef.current;
+    if (!el || !audioName) return;
+    audioReactorRef.current?.resume();
+    if (el.paused) el.play().catch(() => {});
+    else el.pause();
+  }, [audioName]);
 
   const patch = useCallback((p: Partial<Settings>) => {
     setSettings((s) => ({ ...s, ...p }));
@@ -84,8 +119,18 @@ export default function App() {
           seedKey={seedKey}
           scrubTo={scrubTo}
           onMetrics={onMetrics}
+          audioReactorRef={audioReactorRef}
         />
       </div>
+
+      {/* persistent audio element: survives sidebar open/close so playback never interrupts */}
+      <audio
+        ref={audioElRef}
+        className="hidden"
+        onPlay={() => setAudioPlaying(true)}
+        onPause={() => setAudioPlaying(false)}
+        onEnded={() => setAudioPlaying(false)}
+      />
 
       {/* top right tools */}
       <div className="absolute right-2 top-2 z-40 flex gap-1.5 sm:right-4 sm:top-4 sm:gap-2">
@@ -139,6 +184,10 @@ export default function App() {
             applyPreset={applyPreset}
             activePreset={activePreset}
             randomPalette={() => patch({ palette: makePalette() })}
+            audioName={audioName}
+            audioPlaying={audioPlaying}
+            onAudioFile={onAudioFile}
+            onToggleAudioPlay={onToggleAudioPlay}
           />
         </div>
       )}

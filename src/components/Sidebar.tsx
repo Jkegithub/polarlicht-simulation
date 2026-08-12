@@ -42,6 +42,10 @@ interface Props {
   applyPreset: (name: string) => void;
   activePreset: string;
   randomPalette: () => void;
+  audioName: string | null;
+  audioPlaying: boolean;
+  onAudioFile: (file: File) => void;
+  onToggleAudioPlay: () => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -134,7 +138,17 @@ function Select<T extends string>({
   );
 }
 
-export default function Sidebar({ settings, patch, applyPreset, activePreset, randomPalette }: Props) {
+export default function Sidebar({
+  settings,
+  patch,
+  applyPreset,
+  activePreset,
+  randomPalette,
+  audioName,
+  audioPlaying,
+  onAudioFile,
+  onToggleAudioPlay,
+}: Props) {
   const s = settings;
   return (
     <aside className="panel scrollbar-thin flex h-full w-[310px] shrink-0 flex-col overflow-y-auto rounded-2xl">
@@ -216,6 +230,50 @@ export default function Sidebar({ settings, patch, applyPreset, activePreset, ra
           options={WAVEFORMS}
           onChange={(v) => patch({ waveform: v })}
         />
+      </Section>
+
+      <Section title="Musik-Synchronisation">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-white/10 bg-white/4 px-3 py-2 text-[12px] text-slate-200 transition hover:border-emerald-400/40 hover:text-emerald-200">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M9 18V5l11-2v13" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </svg>
+          <span className="truncate">{audioName ?? "Musikdatei wählen…"}</span>
+          <input
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onAudioFile(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+
+        {audioName && (
+          <button
+            onClick={onToggleAudioPlay}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12px] text-emerald-300 transition hover:bg-emerald-400/20"
+          >
+            {audioPlaying ? (
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                <rect x="6" y="5" width="4" height="14" rx="1" />
+                <rect x="14" y="5" width="4" height="14" rx="1" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                <path d="M8 5l11 7-11 7z" />
+              </svg>
+            )}
+            {audioPlaying ? "Pause" : "Abspielen"}
+          </button>
+        )}
+
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+          Bass, Mitten und Höhen der geladenen Datei steuern live Helligkeit, Verwirbelung und Tempo der Girlanden.
+        </p>
       </Section>
 
       <Section title="Himmelsbedingungen">

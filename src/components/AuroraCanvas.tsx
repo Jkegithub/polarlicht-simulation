@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { RefObject, useEffect, useRef } from "react";
+import { AudioReactor } from "../lib/audio";
 import { AuroraRenderer, Metrics } from "../lib/renderer";
 import { Settings } from "../types";
 
@@ -8,9 +9,10 @@ interface Props {
   seedKey: number;
   scrubTo: { t: number; k: number } | null;
   onMetrics: (m: Metrics, time: number) => void;
+  audioReactorRef: RefObject<AudioReactor | null>;
 }
 
-export default function AuroraCanvas({ settings, playing, seedKey, scrubTo, onMetrics }: Props) {
+export default function AuroraCanvas({ settings, playing, seedKey, scrubTo, onMetrics, audioReactorRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<AuroraRenderer | null>(null);
   const settingsRef = useRef(settings);
@@ -41,6 +43,7 @@ export default function AuroraCanvas({ settings, playing, seedKey, scrubTo, onMe
       last = now;
       const s = settingsRef.current;
       const dt = playingRef.current ? realDt * s.speed : 0;
+      r.setAudioLevels(audioReactorRef.current?.update() ?? null);
       const m = r.render(dt, now);
       acc += realDt;
       if (acc > 0.1) {
