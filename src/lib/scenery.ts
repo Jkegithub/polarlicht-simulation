@@ -42,13 +42,22 @@ const WATER_CONFIG: Record<string, { strength: number; alpha: number }> = {
 // der Einbruch auf 127 (die Kammlinie), darunter das Nebelmeer wieder bei 129-142.
 // Die Linie gehoert also auf 43 % - das ist gemessen, nicht geschaetzt.
 const HORIZON_HINT: Partial<Record<SceneId, number>> = {
-  swnebel: 0.43,
+  swnebel: 0.43, // Kammlinie laut Zeilenprofil
+  swoktober: 0.38, // knapp ueber den Alpengipfeln - dort soll die Aurora ansetzen
+  swrhein: 0.25, // knapp ueber dem Huegelkamm, der Kuehlturm bleibt darunter
 };
+
+// Bilder, bei denen ein Vordergrund bis in den Himmel ragt. Eine waagerechte Linie
+// wuerde ihn durchschneiden - im Oktoberbild zerschnitt sie den Buchenbaum. Oberhalb
+// der Linie entscheidet hier deshalb die FARBE: Himmel ist blaeulich oder helle Wolke,
+// Herbstlaub ist warm, Nadelholz ist dunkel. So bleibt der Baum ganz und das Polarlicht
+// scheint durch die Luecken zwischen den Blaettern.
+const SKY_BY_COLOR = new Set<SceneId>(["swoktober"]);
 
 const NIGHT_GRADE: Partial<Record<SceneId, number>> = {
   swnebel: 0.62, // schon Daemmerung, braucht am wenigsten
-  swoktober: 0.9, // praller Herbsttag
-  swrhein: 0.86, // Mittagslicht, blauer Himmel
+  swoktober: 0.18, // Oktoberfarben sollen Oktoberfarben bleiben
+  swrhein: 0.22, // echtes Rheinbild, nur leicht gedaempft
 };
 
 export interface Scenery {
@@ -177,6 +186,23 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
     for (let x = 0; x < w; x++) horizon[x] = flat;
   }
 
+  // Himmelsentscheidung je Bildpunkt statt je Spalte - nur fuer Bilder in SKY_BY_COLOR.
+  // Unterhalb der Linie ist immer Land, darueber entscheidet die Farbe.
+  const skyPixel = SKY_BY_COLOR.has(id) ? new Uint8Array(w * h) : null;
+  if (skyPixel) {
+    const lineY = Math.floor(h * (HORIZON_HINT[id] ?? 0.4));
+    for (let y = 0; y < lineY; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const rV = d[i];
+        const bV = d[i + 2];
+        const L = lum(d, i);
+        // blau im Vorteil oder helle Wolke - und heller als jedes Blattwerk
+        if (bV >= rV - 6 && L > 95) skyPixel[y * w + x] = 1;
+      }
+    }
+  }
+
   // --- 3. WATER LINE detection ---
   // Real water sits below the deepest silhouette valley. Above that, everything is land.
   let deepestHz = 0;
@@ -200,7 +226,7 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
       const i = (y * w + x) * 4;
       const dist = y - hz;
       const t = clamp01((-dist + feather) / (feather * 2));
-      const a = Math.round(t * 255);
+      const a = skyPixel ? (skyPixel[y * w + x] === 1 ? 255 : 0) : Math.round(t * 255);
       md[i] = 0;
       md[i + 1] = 0;
       md[i + 2] = 0;
@@ -266,9 +292,10 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
     const hz = horizon[x];
     for (let y = 0; y < h; y++) {
       const i = (y * w + x) * 4;
-      if (y < hz - 2) {
+      const isSky = skyPixel ? skyPixel[y * w + x] === 1 : y < hz - 2;
+      if (isSky) {
         d[i + 3] = 0; // sky
-      } else if (y < hz) {
+      } else if (!skyPixel && y < hz) {
         d[i + 3] = 90; // soft ridge edge
       } else {
         let alpha = 255;

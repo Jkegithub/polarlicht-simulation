@@ -355,6 +355,7 @@ export default function Sidebar({
         <Slider label="Sterne" value={s.stars} onChange={(v) => patch({ stars: v })} />
         <Slider label="Wolken" value={s.clouds} onChange={(v) => patch({ clouds: v })} />
         <Slider label="Horizont-Leuchten" value={s.horizonGlow} onChange={(v) => patch({ horizonGlow: v })} />
+        <Slider label="Mond" value={s.moon} onChange={(v) => patch({ moon: v })} />
       </Section>
 
       <Section title="Voreinstellungen">

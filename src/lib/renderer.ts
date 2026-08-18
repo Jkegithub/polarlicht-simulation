@@ -505,6 +505,55 @@ export class AuroraRenderer {
     ctx.globalAlpha = 1;
   }
 
+  // Der Mond steht bewusst zwischen Sternen und Polarlicht: von den Baendern
+  // ueberstrahlt, von der Landschaft verdeckt, sobald er unter den Horizont geriete.
+  private paintMoon() {
+    const amount = (this.settings.moon ?? 0) / 100;
+    if (amount <= 0.01) return;
+    const { ctx, W, H } = this;
+    const x = W * 0.78;
+    const y = H * 0.17;
+    const r = Math.max(6, W * 0.009 + amount * W * 0.013);
+
+    ctx.save();
+    // Hof: weit, weich, sehr schwach - sonst frisst er die Sterne ringsum
+    const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 9);
+    halo.addColorStop(0, `rgba(196,214,255,${0.2 * amount})`);
+    halo.addColorStop(0.35, `rgba(150,180,240,${0.07 * amount})`);
+    halo.addColorStop(1, "rgba(120,150,220,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 9, 0, TAU);
+    ctx.fill();
+
+    // Scheibe
+    const disc = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+    disc.addColorStop(0, `rgba(255,255,252,${0.97 * amount})`);
+    disc.addColorStop(0.7, `rgba(232,240,255,${0.93 * amount})`);
+    disc.addColorStop(1, `rgba(198,214,244,${0.85 * amount})`);
+    ctx.fillStyle = disc;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+
+    // Ein paar Krater, damit die Scheibe kein Aufkleber ist. Feste Lage, kein Zufall:
+    // ein flackernder Mond waere sofort aufgefallen.
+    ctx.globalAlpha = 0.1 * amount;
+    ctx.fillStyle = "#7f8bab";
+    const craters: [number, number, number][] = [
+      [-0.28, -0.12, 0.22],
+      [0.18, 0.26, 0.16],
+      [0.3, -0.34, 0.11],
+      [-0.1, 0.42, 0.1],
+    ];
+    for (const [cx, cy, cr] of craters) {
+      ctx.beginPath();
+      ctx.arc(x + cx * r, y + cy * r, cr * r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   private paintAuroraToScreen() {
     const { ctx, W, H } = this;
     ctx.save();
@@ -679,6 +728,7 @@ export class AuroraRenderer {
     this.drawAurora();
     this.paintSky();
     this.paintStars();
+    this.paintMoon();
     this.paintAuroraToScreen();       // aurora clipped to sky region only
     this.paintWaterReflection();      // mirror source is masked -> no shore artefacts
     this.paintClouds();

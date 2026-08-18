@@ -24,6 +24,7 @@ export interface Settings {
   stars: number; // 0..100
   clouds: number; // 0..100
   horizonGlow: number; // 0..100
+  moon: number; // 0..100 - 0 = kein Mond
   bands: number; // 2..10
 }
 
@@ -69,6 +70,7 @@ export const DEFAULT_SETTINGS: Settings = {
   stars: 70,
   clouds: 14,
   horizonGlow: 45,
+  moon: 55,
   bands: 4,
 };
 
