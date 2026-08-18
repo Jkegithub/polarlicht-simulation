@@ -63,12 +63,21 @@ const HORIZON_HINT: Partial<Record<SceneId, number>> = {
 // wird.
 //
 // Je Bild eine eigene Regel, weil die drei Himmel nichts gemeinsam haben:
-type SkyRule = (r: number, g: number, b: number, L: number) => boolean;
+// `xf` ist die Spaltenposition (0..1), `topRef` die mittlere Helligkeit der obersten 3 %
+// DIESER Spalte - fuer Bilder, deren Himmel ueber die Breite hinweg heller oder dunkler
+// wird und die deshalb keine feste Schwelle vertragen.
+type SkyRule = (r: number, g: number, b: number, L: number, xf: number, topRef: number) => boolean;
 const SKY_RULE: Partial<Record<SceneId, SkyRule>> = {
-  // Abendhimmel ueber dem Nebelmeer ist warm bis weiss - Farbe hilft nicht, Helligkeit
-  // schon: Himmel 142-167, die Kammlinie faellt auf 127. Das Nebelmeer darunter ist zwar
-  // ebenso hell, haengt aber nicht mit dem oberen Rand zusammen.
-  swnebel: (_r, _g, _b, L) => L > 132,
+  // Abendhimmel ueber dem Nebelmeer: Eine FESTE Helligkeitsschwelle kann dieses Bild
+  // grundsaetzlich nicht trennen - gemessen. Der Himmel wird nach rechts dunkler (die
+  // Spaltenreferenz laeuft von 176 links auf 113 rechts), das Nebelmeer liegt mit
+  // L = 129..142 mittendrin. Die alte Schwelle 132 erzeugte damit ZWEI Fehler auf einmal:
+  // rechts wurde Himmel zu Land (der undurchsichtige Klotz am Bildrand), in der Mitte
+  // Nebel zu Himmel (der angeschnittene Nebel). Beides verschwindet, sobald die Schwelle
+  // der Spalte folgt: Himmel ist, was nicht mehr als 10 Stufen unter dem Zenit DIESER
+  // Spalte liegt. Der Nebel bleibt draussen, weil er weit tiefer sitzt, die linke
+  // Huegelkontur bleibt erhalten (gemessen 0,388 -> 0,418).
+  swnebel: (_r, _g, _b, L, _xf, topRef) => L > topRef - 10,
   // Herbsttag. Ueber die Blaeue laesst sich hier NICHT trennen: Der Schleierwolkenstreifen
   // bei 12 % Hoehe hat b-r = 2 bei L = 221, die Alpenkette b-r = 15..20 bei L = 216..225 -
   // praktisch dasselbe. Eine Blau-Schwelle machte den Schleier zur Mauer, an der die
@@ -81,7 +90,19 @@ const SKY_RULE: Partial<Record<SceneId, SkyRule>> = {
   // L = 88..97 (trotz hohem b-r, Schattenblau); der Kuehlturm b-r = 28 bei L = 174; die
   // Dampffahne b-r = 8. Mit b-r > 32 UND L > 120 bleibt der Himmel Himmel, waehrend
   // Huegel, Turm und Fahne Landschaft bleiben - die Fahne steht damit sichtbar im Bild.
-  swrhein: (r, _g, b, L) => b - r > 32 && L > 120,
+  //
+  // Zweiter Teil, nachgetragen: Ueber dem Huegelkamm liegt ein breites weisses Talnebel-
+  // band (L = 181..246 bei b-r = 0..34), das an der Blau-Bedingung scheitert und deshalb
+  // als undurchsichtiger Streifen zwischen Polarlicht und Landschaft stehenblieb. Es ist
+  // dasselbe Material wie die Dampffahne (L = 224..250 bei b-r = 8..34) - farblich sind
+  // die beiden NICHT zu trennen, jede Schwelle nimmt entweder beide oder keines.
+  // Trennbar ist nur die Form: Die Fahne ist eine schmale senkrechte Saeule, das Band
+  // liegt waagerecht. Der Fahnenkorridor wurde ueber fuenf Zeilen (16..31 % Bildhoehe)
+  // gemessen und liegt stabil bei x = 0,545..0,635; dort bleibt Helles Landschaft, sonst
+  // wird es Himmel. Die Fahne steht damit weiter, das Band ist weg.
+  swrhein: (r, _g, b, L, xf) =>
+    (b - r > 32 && L > 120) ||
+    (L > 165 && b - r > -10 && !(xf > 0.53 && xf < 0.65)),
 };
 
 // Nur fuers Nebelmeer: freistehende Inseln im Himmelsbereich beseitigen. Dort sind es
@@ -108,9 +129,35 @@ const FILL_ENCLOSED_SKY = new Set<SceneId>(["swoktober"]);
 // die Silhouette reichen. Vorher schnitt sie deutlich zu hoch ab - zwischen Polarlicht und
 // Landschaft blieb ein Streifen ausgewaschener Foto-Himmel stehen.
 const SKY_MAX_DEPTH: Partial<Record<SceneId, number>> = {
-  swnebel: 0.48,
-  swoktober: 0.52, // bis an den dunklen Waldkamm - die Aurora soll ihn erreichen
+  // Nebelmeer: Zeilenprofil des Originals gemessen - Sonnenglut bei 38 % (L = 168),
+  // Einbruch auf L = 127 bei 44 % (die Kammlinie), darunter das Nebelmeer wieder bei
+  // 134..145 bis 56 %. Der alte Wert 0,48 lag also MITTEN IM NEBEL und schnitt dessen
+  // oberste Lage ab. Auf der Kammlinie sitzt die Grenze richtig: mehr Nebel, kein
+  // ausgewaschener Foto-Streifen mehr.
+  swnebel: 0.44,
+  // Oktoberblick: rechts (ab x = 0,7) blieb der Himmel bis 52 % hell (L = 200..224) und
+  // wurde von der alten Grenze mittendrin abgeschnitten - daher die zu hohe Kante rechts.
+  // Der dunkle Waldkamm beginnt dort erst bei 55 % (L faellt von 165 auf 73..124). Die
+  // Regel selbst haelt ihn zurueck, die Grenze darf also tiefer.
+  swoktober: 0.57,
+  // Rheinbogen: Kamm gemessen bei 41..43 % (rechts L = 122 -> 70), die Grenze passt.
   swrhein: 0.42,
+};
+
+// Die eigentliche Trennung bei den beiden Tagesaufnahmen: Der Himmel endet in jeder
+// Spalte an der ersten GESCHLOSSENEN dunklen Strecke - also dort, wo `run` Bildpunkte am
+// Stueck unter `below` liegen. Das ist der zusammenhaengende Wald bzw. der Hoehenzug.
+// Eine waagerechte Grenze kann das nicht leisten, weil beide Kanten schraeg verlaufen:
+// Beim Oktoberblick beginnt der geschlossene Wald links und in der Mitte bei 49 %, rechts
+// erst bei 57 % (deshalb blinzelte das Nordlicht vorher unten durch den Wald). Beim
+// Rheinbogen laeuft der obere der beiden Hoehenzuege von 31 % links auf 41 % rechts -
+// eine feste Grenze bei 42 % nahm in der Mitte zu viel Landschaft weg.
+// `from` haelt die Pruefung von allem fern, was darueber liegt: beim Oktoberblick die
+// Buchenkrone, die als dunkle Strecke sonst sofort ausloesen und das Nordlicht unter dem
+// Ast abschneiden wuerde.
+const SKY_RUN_STOP: Partial<Record<SceneId, { from: number; below: number; run: number }>> = {
+  swoktober: { from: 0.42, below: 130, run: 15 },
+  swrhein: { from: 0.24, below: 160, run: 15 },
 };
 
 const NIGHT_GRADE: Partial<Record<SceneId, number>> = {
@@ -251,10 +298,36 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
   if (rule) {
     const cand = new Uint8Array(w * h);
     const maxY = Math.floor(h * (SKY_MAX_DEPTH[id] ?? 0.5));
+    // Spaltenreferenz: mittlere Helligkeit der obersten 3 % je Spalte. Nur so kann eine
+    // Regel einem Himmel folgen, der ueber die Bildbreite hinweg heller oder dunkler wird.
+    const topRef = new Float32Array(w);
+    const refRows = Math.max(2, Math.floor(h * 0.03));
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let y = 0; y < refRows; y++) s += lum(d, (y * w + x) * 4);
+      topRef[x] = s / refRows;
+    }
     for (let y = 0; y < maxY; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
-        if (rule(d[i], d[i + 1], d[i + 2], lum(d, i))) cand[y * w + x] = 1;
+        if (rule(d[i], d[i + 1], d[i + 2], lum(d, i), x / w, topRef[x])) cand[y * w + x] = 1;
+      }
+    }
+
+    // Geschlossene Landstrecke je Spalte: alles darunter kann kein Himmel mehr sein.
+    const stop = SKY_RUN_STOP[id];
+    if (stop) {
+      const y0 = Math.floor(h * stop.from);
+      for (let x = 0; x < w; x++) {
+        let cut = -1;
+        for (let y = y0; y < maxY; y++) {
+          let solid = true;
+          for (let q = 0; q < stop.run; q++) {
+            if (y + q >= h || lum(d, ((y + q) * w + x) * 4) >= stop.below) { solid = false; break; }
+          }
+          if (solid) { cut = y; break; }
+        }
+        if (cut >= 0) for (let y = cut; y < maxY; y++) cand[y * w + x] = 0;
       }
     }
 
