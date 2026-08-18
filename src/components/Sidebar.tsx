@@ -1,6 +1,22 @@
+import { useState } from "react";
 import { DemoTrack, DEMO_TRACKS } from "../lib/demoTracks";
 import { SCENE_URLS } from "../lib/scenery";
 import { DIRECTIONS, Direction, SCENES, SceneId, Settings, WAVEFORMS, Waveform } from "../types";
+
+const AUDIO_EXT =
+  /\.(mp3|m4a|m4b|aac|wav|wave|aif|aiff|aifc|caf|flac|ogg|oga|opus|weba|webm|mp4|mov|wma|amr|3gp)$/i;
+
+/**
+ * iOS/iPadOS graut im Dateidialog jede Datei aus, die nicht zur accept-Liste passt —
+ * und mappt accept="audio/*" dabei so eng, dass praktisch jede Musikdatei grau bleibt.
+ * Darum steht hier kein accept-Attribut, sondern diese Pruefung: MIME-Typ wenn der
+ * Browser einen liefert, sonst die Dateiendung.
+ */
+function looksLikeAudio(file: File) {
+  if (file.type.startsWith("audio/")) return true;
+  if (file.type.startsWith("video/")) return true; // Tonspur genuegt
+  return AUDIO_EXT.test(file.name);
+}
 
 function SceneGrid({ value, onChange }: { value: SceneId; onChange: (v: SceneId) => void }) {
   return (
@@ -155,6 +171,7 @@ export default function Sidebar({
   onSelectDemo,
 }: Props) {
   const s = settings;
+  const [fileError, setFileError] = useState<string | null>(null);
   return (
     <aside className="panel scrollbar-thin flex h-full w-[310px] shrink-0 flex-col overflow-y-auto rounded-2xl">
       <div className="border-b border-white/6 px-5 pb-4 pt-5">
@@ -313,15 +330,21 @@ export default function Sidebar({
           <span className="truncate">Eigene Musikdatei wählen</span>
           <input
             type="file"
-            accept="audio/*"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) onAudioFile(file);
               e.target.value = "";
+              if (!file) return;
+              if (!looksLikeAudio(file)) {
+                setFileError(`„${file.name}“ ist keine Musikdatei.`);
+                return;
+              }
+              setFileError(null);
+              onAudioFile(file);
             }}
           />
         </label>
+        {fileError && <p className="mt-1 text-[10px] leading-relaxed text-rose-300">{fileError}</p>}
 
         <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
           Bass, Mitten und Höhen des laufenden Stücks steuern live Helligkeit, Verwirbelung und Tempo der Girlanden.
