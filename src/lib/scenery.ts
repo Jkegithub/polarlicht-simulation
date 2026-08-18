@@ -2,14 +2,19 @@ import fjordUrl from "../assets/scene-fjord.jpg";
 import waldUrl from "../assets/scene-wald.jpg";
 import eismeerUrl from "../assets/scene-eismeer.jpg";
 import huetteUrl from "../assets/scene-huette.jpg";
+import swNebelUrl from "../assets/scene-sw-nebel.jpg";
+import swOktoberUrl from "../assets/scene-sw-oktober.jpg";
+import swRheinUrl from "../assets/scene-sw-rhein.jpg";
 import { SceneId } from "../types";
-import { drawSchwarzwald } from "./schwarzwald";
 
 export const SCENE_URLS: Partial<Record<SceneId, string>> = {
   fjord: fjordUrl,
   wald: waldUrl,
   eismeer: eismeerUrl,
   huette: huetteUrl,
+  swnebel: swNebelUrl,
+  swoktober: swOktoberUrl,
+  swrhein: swRheinUrl,
 };
 
 const WATER_CONFIG: Record<string, { strength: number; alpha: number }> = {
@@ -17,8 +22,33 @@ const WATER_CONFIG: Record<string, { strength: number; alpha: number }> = {
   eismeer: { strength: 0.55, alpha: 160 },
   huette: { strength: 0.6, alpha: 155 },
   wald: { strength: 0, alpha: 255 },
-  schwarzwald: { strength: 0, alpha: 255 }, // Hoehenzuege, kein Wasser
+  // Die drei Schwarzwald-Aufnahmen laufen vorerst ohne Wasserspiegelung: Nebelmeer
+  // ist kein Wasser, und beim Rheinbogen liesse sich die Spiegelung erst nach einem
+  // Blick aufs fertige Bild verantworten. Zahl hier hochsetzen, wenn gewuenscht.
+  swnebel: { strength: 0, alpha: 255 },
+  swoktober: { strength: 0, alpha: 255 },
+  swrhein: { strength: 0, alpha: 255 },
   himmel: { strength: 0, alpha: 0 },
+};
+
+// Wie stark eine Aufnahme ins Naechtliche gezogen wird (0 = unveraendert lassen).
+// Die vier Erstfassungs-Szenen sind bereits Nachtbilder. Die drei eigenen Fotos sind
+// bei Tageslicht entstanden - ohne Umstimmung staende ein gruenes Polarlicht ueber
+// blauem Nachmittagshimmel.
+// Feste Horizontlinie fuer Bilder, bei denen keine Helligkeitsregel taugt.
+// Beim Nebelmeer liegt das Nebelband HELLER als der Himmel darueber - Land ist dort
+// weder durchgehend heller noch durchgehend dunkler, beide Suchrichtungen scheitern.
+// Gemessenes Zeilenprofil dieser Aufnahme: Himmel 142-167 bis 40 % Bildhoehe, bei 44 %
+// der Einbruch auf 127 (die Kammlinie), darunter das Nebelmeer wieder bei 129-142.
+// Die Linie gehoert also auf 43 % - das ist gemessen, nicht geschaetzt.
+const HORIZON_HINT: Partial<Record<SceneId, number>> = {
+  swnebel: 0.43,
+};
+
+const NIGHT_GRADE: Partial<Record<SceneId, number>> = {
+  swnebel: 0.62, // schon Daemmerung, braucht am wenigsten
+  swoktober: 0.9, // praller Herbsttag
+  swrhein: 0.86, // Mittagslicht, blauer Himmel
 };
 
 export interface Scenery {
@@ -31,12 +61,6 @@ export interface Scenery {
   horizon: Float32Array;
   waterTop: number; // y in image px where reflective water starts
   waterStrength: number;
-}
-
-// Vorschaubild der Szenenauswahl: einmalig klein gezeichnet (ca. 1 ms), damit die
-// Kachel dasselbe zeigt wie die Fotoszenen - ohne Datei im Build.
-if (typeof document !== "undefined") {
-  SCENE_URLS.schwarzwald = drawSchwarzwald(320, 180).toDataURL("image/jpeg", 0.82);
 }
 
 const cache = new Map<SceneId, Scenery>();
@@ -66,27 +90,75 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
     }
   }
   const skyLum = skySum / Math.max(1, skyN);
-  const thr = Math.max(9, skyLum + 12);
+
+  // Gegenprobe aus den untersten Bildzeilen: Nachtaufnahmen mit Schnee haben helles
+  // Land vor dunklem Himmel, Tagesaufnahmen genau umgekehrt. Ohne diese Unterscheidung
+  // sucht die Silhouettensuche im falschen Kontrast und findet den Horizont im Himmel.
+  let landSum = 0;
+  let landN = 0;
+  for (let y = Math.floor(h * 0.88); y < h; y++) {
+    for (let x = 0; x < w; x += 3) {
+      landSum += lum(d, (y * w + x) * 4);
+      landN++;
+    }
+  }
+  const landLum = landSum / Math.max(1, landN);
+  const brightLand = landLum >= skyLum;
+  const thr = brightLand ? Math.max(9, skyLum + 12) : Math.min(246, skyLum - 14);
+  const isLand = (v: number) => (brightLand ? v > thr : v < thr);
+  // Bestaetigung der darunterliegenden Zeilen, etwas nachsichtiger als die Schwelle.
+  const isLandLoose = (v: number) => (brightLand ? v > thr * 0.7 : v < thr * 1.35);
 
   // --- 2. Silhouette (first solid row per column) ---
   const raw = new Float32Array(w);
   const maxScan = Math.floor(h * 0.96);
-  for (let x = 0; x < w; x++) {
-    let found = -1;
-    for (let y = 0; y < maxScan; y++) {
-      const i = (y * w + x) * 4;
-      if (lum(d, i) > thr) {
-        let ok = 0;
-        for (let k = 1; k <= 4; k++) {
-          if (y + k < h && lum(d, ((y + k) * w + x) * 4) > thr * 0.7) ok++;
+
+  const hint = HORIZON_HINT[id];
+  if (hint !== undefined) {
+    raw.fill(h * hint);
+  } else if (brightLand) {
+    // Nachtaufnahmen mit hellem Schnee: von oben herab die erste feste Zeile suchen.
+    // Bewaehrter Weg der vier Erstfassungs-Szenen, unveraendert.
+    for (let x = 0; x < w; x++) {
+      let found = -1;
+      for (let y = 0; y < maxScan; y++) {
+        const i = (y * w + x) * 4;
+        if (isLand(lum(d, i))) {
+          let ok = 0;
+          for (let k = 1; k <= 4; k++) {
+            if (y + k < h && isLandLoose(lum(d, ((y + k) * w + x) * 4))) ok++;
+          }
+          if (ok >= 3) {
+            found = y;
+            break;
+          }
         }
-        if (ok >= 3) {
-          found = y;
+      }
+      raw[x] = found < 0 ? h : found;
+    }
+  } else {
+    // Tagesaufnahmen: Land ist dunkler als der Himmel - und dunkel ist im Himmel
+    // leider auch manches andere. Ein Ast am oberen Bildrand, eine dunkle Wolke, eine
+    // beschattete Ecke: von oben gesucht endet der Horizont dort sofort bei y=0.
+    // Darum von UNTEN herauf, solange das Land zusammenhaengt. Der Boden ist die
+    // sichere Bank; wo der Zusammenhang abreisst, ist der Horizont. Kleine Luecken
+    // (heller Weg, Hausdach, Wasserglanz) werden ueberbrueckt.
+    const gapMax = Math.max(3, Math.floor(h * 0.02));
+    const minY = Math.floor(h * 0.04);
+    for (let x = 0; x < w; x++) {
+      let gap = 0;
+      let lastLand = h - 1;
+      let y = h - 1;
+      for (; y >= minY; y--) {
+        if (isLandLoose(lum(d, (y * w + x) * 4))) {
+          gap = 0;
+          lastLand = y;
+        } else if (++gap > gapMax) {
           break;
         }
       }
+      raw[x] = lastLand;
     }
-    raw[x] = found < 0 ? h : found;
   }
 
   const horizon = new Float32Array(w);
@@ -267,6 +339,22 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
   }
   wctx.putImageData(wimg, 0, 0);
 
+  // Nachtstimmung: Helligkeit stark zurueck, Farbe fast raus, Rest ins Blaue. Die
+  // Struktur des Bildes bleibt, die Tageszeit nicht. Laeuft bewusst erst hier - die
+  // Horizonterkennung oben muss die Originalpixel sehen.
+  const night = NIGHT_GRADE[id] ?? 0;
+  if (night > 0) {
+    for (let i = 0; i < d.length; i += 4) {
+      const L = lum(d, i);
+      const nr = L * 0.26 + 6;
+      const ng = L * 0.32 + 11;
+      const nb = L * 0.44 + 20;
+      d[i] += (nr - d[i]) * night;
+      d[i + 1] += (ng - d[i + 1]) * night;
+      d[i + 2] += (nb - d[i + 2]) * night;
+    }
+  }
+
   ctx.putImageData(imgData, 0, 0);
 
   return { id, cut: cv, skyMask: maskCv, waterMask: waterCv, w, h, horizon, waterTop, waterStrength };
@@ -279,15 +367,6 @@ function clamp01(v: number) {
 export function loadScenery(id: SceneId): Promise<Scenery> | Scenery | null {
   const hit = cache.get(id);
   if (hit) return hit;
-
-  // Der Schwarzwald wird gezeichnet statt geladen - kein Netzweg, kein Warten,
-  // deshalb faellt er synchron aus der Funktion. Der Rueckgabetyp deckt das ab.
-  if (id === "schwarzwald") {
-    const cv = drawSchwarzwald(1600, 900);
-    const s = process(id, cv, cv.width, cv.height);
-    cache.set(id, s);
-    return s;
-  }
 
   const url = SCENE_URLS[id];
   if (!url) return null;

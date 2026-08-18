@@ -7,7 +7,8 @@ Eine interaktive Aurora-Borealis-Simulation im Browser — reines Canvas-2D-Rend
 ## Features
 
 - Prozedurale Polarlicht-Bänder (Value-Noise/FBM), live steuerbar über Intensität, Aktivität, Farbvielfalt, Bewegung, Zufälligkeit, Bandanzahl, Geschwindigkeit, Richtung und Wellenform
-- 6 Szenen: Fjord, Nadelwald, Eismeer, Berghütte, Schwarzwald, freier Himmel — mit automatischer Horizont-/Wasser-Erkennung (Silhouette-Extraktion, Sky-Mask, Wasserreflexion). Der **Schwarzwald ist gezeichnet statt fotografiert** ([src/lib/schwarzwald.ts](src/lib/schwarzwald.ts)): gestaffelte Höhenzüge, Tannensilhouetten und Talnebel entstehen im Browser aus Code und laufen anschließend durch dieselbe Horizont-Erkennung wie die Fotos — kein Fremdmaterial, kein Dateigewicht
+- 8 Szenen: Fjord, Nadelwald, Eismeer, Berghütte, drei Schwarzwald-Ansichten, freier Himmel — mit automatischer Horizont-/Wasser-Erkennung (Silhouette-Extraktion, Sky-Mask, Wasserreflexion)
+- **Zwei Kontrastlagen bei der Horizont-Erkennung:** Die Nachtszenen haben helles (verschneites) Land vor dunklem Himmel, die Schwarzwald-Aufnahmen entstanden bei Tageslicht und damit umgekehrt. Der Code misst die Lage aus Bildober- und -unterkante und sucht die Silhouette entsprechend von oben herab oder von unten herauf; Tagesaufnahmen werden zusätzlich ins Nächtliche umgestimmt, damit eine Aurora darüber überhaupt plausibel ist
 - Sternenhimmel, Wolken, Horizont-Glow, Snapshot-Export als PNG
 - Live-Dashboard: Intensitätsverlauf, Kp-Index, Farbverteilung, Oval-Form, Palettenvarianten
 - Presets (Sanft / Dynamisch / Sturm / Zufall) sowie freie Farbpaletten
@@ -34,13 +35,16 @@ Jeder Push auf `main` baut automatisch (GitHub Actions, [.github/workflows/deplo
 
 ## Musik-Credits
 
-Die 3 echten Demo-Aufnahmen im Dropdown stammen aus dem **Musopen Kickstarter Project**, als „Public Domain Mark 1.0“ gekennzeichnet, bezogen über [archive.org/details/MusopenCollectionAsFlac](https://archive.org/details/MusopenCollectionAsFlac):
+Die 6 echten Demo-Aufnahmen im Dropdown stammen aus dem **Musopen Kickstarter Project**, als „Public Domain Mark 1.0“ gekennzeichnet, bezogen über [archive.org/details/MusopenCollectionAsFlac](https://archive.org/details/MusopenCollectionAsFlac):
 
 - J.S. Bach – Goldberg-Variationen, Nr. 4
 - Haydn – Streichquartett „Die Lerche“, Finale
 - Borodin – Streichquartett Nr. 1, Scherzo
+- Grieg – „Morgenstimmung“ aus Peer Gynt, Suite Nr. 1 op. 46
+- Smetana – „Die Moldau“ aus Má vlast
+- Mendelssohn – „Die Hebriden“ (Fingalshöhle) op. 26
 
-Die 5 weiteren Demo-Loops (Ambient/Electro/Neoklassik/Rock/Schwarzwald-Walzer) sind keine Aufnahmen, sondern werden live im Browser synthetisiert ([src/lib/generators.ts](src/lib/generators.ts)) — vollständig eigenes Material.
+Die 5 Demo-Loops (Ambient/Electro/Neoklassik/Rock/Schwarzwald-Walzer) sind keine Aufnahmen, sondern werden live im Browser synthetisiert ([src/lib/generators.ts](src/lib/generators.ts)) — vollständig eigenes Material.
 
 ## Bild-Credits
 
@@ -54,9 +58,12 @@ nach derzeitiger Auffassung des US Copyright Office mangels menschlicher Urheber
 **keinen eigenen Urheberrechtsschutz** — sie sind hier verwendbar, aber nicht
 monopolisierbar. *(Stand der Prüfung: 18.08.2026.)*
 
-Die Szene **Schwarzwald** ist kein Bild, sondern Code: Sie wird bei Auswahl im Browser
-gezeichnet ([src/lib/schwarzwald.ts](src/lib/schwarzwald.ts)) — dieselbe Linie wie bei
-den synthetisierten Klang-Loops, damit keine weitere Rechtefrage entsteht.
+Die drei Schwarzwald-Szenen `scene-sw-nebel.jpg` (Nebelmeer), `scene-sw-oktober.jpg`
+(Oktoberblick) und `scene-sw-rhein.jpg` (Rheinbogen bei Waldshut) sind **eigene
+Aufnahmen des Projektautors** — für die Verwendung hier freigegeben, für die
+Weiterverwendung durch Dritte gilt die MIT-Lizenz des Codes ausdrücklich **nicht**.
+Sie liegen auf 1920 px Breite verkleinert im Repository, weil der Build alle Bilder
+als base64 in die einzige `index.html` einbettet.
 
 ## Lizenz
 
