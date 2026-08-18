@@ -181,6 +181,45 @@ export function startGenerator(ctx: AudioContext, out: AudioNode, kind: Generato
         else hit(loopStart + i * step, 0.045, vel(0.22, 0.3), 6500, 1.6);
         if (fill && i === 6) hit(loopStart + i * step + step * 0.5, 0.06, 0.3, 3200, 1.1);
       }
+    } else if (kind === "schwarzwald") {
+      // Ruhiger Dreivierteltakt im Volkston: Bass auf die Eins, zwei leise
+      // Nachschlaege - das "Um-ta-ta", das jeder aus dem Schwarzwald im Ohr hat,
+      // nur langsam und weich, damit es unter Polarlichtern nicht albern wirkt.
+      loopLen = 6;
+      const beat = 1;
+      const progressions = [
+        { bass: 0, chord: [2, 4] },
+        { bass: 3, chord: [5, 0] },
+        { bass: 4, chord: [6, 1] },
+        { bass: 0, chord: [4, 2] },
+      ];
+      for (let bar = 0; bar < 2; bar++) {
+        const prog = progressions[(li * 2 + bar) % progressions.length];
+        const t0 = loopStart + bar * 3 * beat;
+        tone(t0, SCALE_MAJ[prog.bass] / 4, beat * 0.9, "sine", vel(0.74, 0.1));
+        prog.chord.forEach((deg, i) =>
+          tone(t0 + (i + 1) * beat, SCALE_MAJ[deg] / 2, beat * 0.55, "triangle", vel(0.38, 0.2)),
+        );
+      }
+
+      // Eine schlichte Melodie darueber, jede Runde etwas anders angesetzt.
+      const motifs = [
+        [4, 4, 2, 0],
+        [4, 6, 4, 2],
+        [2, 4, 0, 0],
+      ];
+      const motif = motifs[li % motifs.length];
+      motif.forEach((deg, i) =>
+        tone(loopStart + 0.5 + i * beat * 1.4, SCALE_MAJ[deg], beat * 1.1, "triangle", vel(0.44, 0.25)),
+      );
+
+      // Der Kuckuck: zwei Toene, fallende kleine Terz (C5 -> A4) - so ruft der
+      // Vogel, und so schlagen die Uhren. Nicht jede Runde, sonst nervt er.
+      if (li % 3 === 2) {
+        const tc = loopStart + 3.6 + Math.random() * 0.8;
+        tone(tc, 523.25, 0.34, "sine", 0.6);
+        tone(tc + 0.42, 440, 0.5, "sine", 0.52);
+      }
     }
 
     const delayMs = Math.max(50, (loopLen - 0.3) * 1000);

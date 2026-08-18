@@ -1,6 +1,6 @@
 export type Waveform = "sanft" | "dynamisch" | "chaotisch" | "vorhang";
 export type Direction = "nord" | "sued" | "ost" | "west";
-export type SceneId = "fjord" | "wald" | "eismeer" | "huette" | "himmel";
+export type SceneId = "fjord" | "wald" | "eismeer" | "huette" | "schwarzwald" | "himmel";
 
 export interface Settings {
   scene: SceneId;
@@ -24,6 +24,7 @@ export const SCENES: { id: SceneId; label: string }[] = [
   { id: "wald", label: "Verschneiter Nadelwald" },
   { id: "eismeer", label: "Eismeer & Eisberge" },
   { id: "huette", label: "Berghütte am See" },
+  { id: "schwarzwald", label: "Schwarzwald (gezeichnet)" },
   { id: "himmel", label: "Offener Himmel (nur Aurora)" },
 ];
 

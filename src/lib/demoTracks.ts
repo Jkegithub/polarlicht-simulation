@@ -1,4 +1,4 @@
-export type GeneratorId = "ambient" | "electro" | "arpeggio" | "rock";
+export type GeneratorId = "ambient" | "electro" | "arpeggio" | "rock" | "schwarzwald";
 
 export interface DemoTrack {
   id: string;
@@ -42,4 +42,5 @@ export const DEMO_TRACKS: DemoTrack[] = [
   { id: "electro", label: "Electro Puls", genre: "Electronic · eigener Loop", kind: "generated" },
   { id: "arpeggio", label: "Klassik-Arpeggio", genre: "Neoklassik · eigener Loop", kind: "generated" },
   { id: "rock", label: "Perkussion-Rock", genre: "Rock · eigener Loop", kind: "generated" },
+  { id: "schwarzwald", label: "Schwarzwald-Walzer (mit Kuckuck)", genre: "Volkston · eigener Loop", kind: "generated" },
 ];

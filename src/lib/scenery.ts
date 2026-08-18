@@ -3,6 +3,7 @@ import waldUrl from "../assets/scene-wald.jpg";
 import eismeerUrl from "../assets/scene-eismeer.jpg";
 import huetteUrl from "../assets/scene-huette.jpg";
 import { SceneId } from "../types";
+import { drawSchwarzwald } from "./schwarzwald";
 
 export const SCENE_URLS: Partial<Record<SceneId, string>> = {
   fjord: fjordUrl,
@@ -16,6 +17,7 @@ const WATER_CONFIG: Record<string, { strength: number; alpha: number }> = {
   eismeer: { strength: 0.55, alpha: 160 },
   huette: { strength: 0.6, alpha: 155 },
   wald: { strength: 0, alpha: 255 },
+  schwarzwald: { strength: 0, alpha: 255 }, // Hoehenzuege, kein Wasser
   himmel: { strength: 0, alpha: 0 },
 };
 
@@ -31,6 +33,12 @@ export interface Scenery {
   waterStrength: number;
 }
 
+// Vorschaubild der Szenenauswahl: einmalig klein gezeichnet (ca. 1 ms), damit die
+// Kachel dasselbe zeigt wie die Fotoszenen - ohne Datei im Build.
+if (typeof document !== "undefined") {
+  SCENE_URLS.schwarzwald = drawSchwarzwald(320, 180).toDataURL("image/jpeg", 0.82);
+}
+
 const cache = new Map<SceneId, Scenery>();
 const pending = new Map<SceneId, Promise<Scenery>>();
 
@@ -38,9 +46,7 @@ function lum(d: Uint8ClampedArray, i: number) {
   return 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
 }
 
-function process(id: SceneId, img: HTMLImageElement): Scenery {
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
+function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Scenery {
 
   const cv = document.createElement("canvas");
   cv.width = w;
@@ -271,17 +277,27 @@ function clamp01(v: number) {
 }
 
 export function loadScenery(id: SceneId): Promise<Scenery> | Scenery | null {
-  const url = SCENE_URLS[id];
-  if (!url) return null;
   const hit = cache.get(id);
   if (hit) return hit;
+
+  // Der Schwarzwald wird gezeichnet statt geladen - kein Netzweg, kein Warten,
+  // deshalb faellt er synchron aus der Funktion. Der Rueckgabetyp deckt das ab.
+  if (id === "schwarzwald") {
+    const cv = drawSchwarzwald(1600, 900);
+    const s = process(id, cv, cv.width, cv.height);
+    cache.set(id, s);
+    return s;
+  }
+
+  const url = SCENE_URLS[id];
+  if (!url) return null;
   const inFlight = pending.get(id);
   if (inFlight) return inFlight;
   const p = new Promise<Scenery>((resolve, reject) => {
     const img = new Image();
     img.decoding = "async";
     img.onload = () => {
-      const s = process(id, img);
+      const s = process(id, img, img.naturalWidth, img.naturalHeight);
       cache.set(id, s);
       pending.delete(id);
       resolve(s);
