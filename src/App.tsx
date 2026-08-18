@@ -19,6 +19,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches,
   );
+  const [dashboardOpen, setDashboardOpen] = useState(true);
 
   const [metrics, setMetrics] = useState<Metrics>({
     intensity: 0.85,
@@ -208,6 +209,19 @@ export default function App() {
           <span className="hidden sm:inline">{sidebarOpen ? "Panel ausblenden" : "Panel einblenden"}</span>
         </button>
         <button
+          onClick={() => setDashboardOpen((v) => !v)}
+          title={dashboardOpen ? "Anzeigen ausblenden" : "Anzeigen einblenden"}
+          className="panel flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300 sm:px-3"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M3 20h18" />
+            <rect x="5" y="12" width="3.4" height="5" rx="1" />
+            <rect x="10.3" y="8" width="3.4" height="9" rx="1" />
+            <rect x="15.6" y="4" width="3.4" height="13" rx="1" />
+          </svg>
+          <span className="hidden sm:inline">{dashboardOpen ? "Anzeigen ausblenden" : "Anzeigen einblenden"}</span>
+        </button>
+        <button
           onClick={() => setSeedKey((k) => k + 1)}
           title="Neu würfeln"
           className="panel flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] text-slate-200 transition hover:text-emerald-300 sm:px-3"
@@ -256,6 +270,7 @@ export default function App() {
       )}
 
       {/* dashboard */}
+      {dashboardOpen && (
       <div className="absolute bottom-3 left-3 right-3 z-10 md:left-[334px]">
         <Dashboard
           metrics={metrics}
@@ -274,6 +289,7 @@ export default function App() {
           onVariation={(palette) => patch({ palette })}
         />
       </div>
+      )}
     </div>
   );
 }
