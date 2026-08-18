@@ -18,14 +18,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Stand 18.08.2026: aktuelle Major-Versionen, direkt von den Release-Seiten
+      # abgelesen. Grund fuer den Sprung: GitHub nimmt Node 20 am 16.09.2026 vom
+      # Runner - die alten v3/v4-Bausteine liefen darauf und haetten den Build
+      # danach zum Stehen gebracht.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -37,4 +41,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
