@@ -182,23 +182,23 @@ export function startGenerator(ctx: AudioContext, out: AudioNode, kind: Generato
         if (fill && i === 6) hit(loopStart + i * step + step * 0.5, 0.06, 0.3, 3200, 1.1);
       }
     } else if (kind === "schwarzwald") {
-      // Ruhiger Dreivierteltakt im Volkston: Bass auf die Eins, zwei leise
-      // Nachschlaege - das "Um-ta-ta", das jeder aus dem Schwarzwald im Ohr hat,
-      // nur langsam und weich, damit es unter Polarlichtern nicht albern wirkt.
-      loopLen = 6;
-      const beat = 1;
+      // Flotter Dreivierteltakt: Bass auf die Eins, zwei Nachschlaege - das "Um-ta-ta".
+      // Erste Fassung lief auf 60 Schlaegen je Minute und war ein Schleicher; 0,58 s je
+      // Schlag sind gut 103/min und damit im ueblichen Walzertempo.
+      const beat = 0.58;
+      loopLen = beat * 12; // vier Takte zu drei Schlaegen
       const progressions = [
         { bass: 0, chord: [2, 4] },
         { bass: 3, chord: [5, 0] },
         { bass: 4, chord: [6, 1] },
         { bass: 0, chord: [4, 2] },
       ];
-      for (let bar = 0; bar < 2; bar++) {
+      for (let bar = 0; bar < 4; bar++) {
         const prog = progressions[(li * 2 + bar) % progressions.length];
         const t0 = loopStart + bar * 3 * beat;
-        tone(t0, SCALE_MAJ[prog.bass] / 4, beat * 0.9, "sine", vel(0.74, 0.1));
+        tone(t0, SCALE_MAJ[prog.bass] / 4, beat * 0.9, "sine", vel(0.62, 0.1));
         prog.chord.forEach((deg, i) =>
-          tone(t0 + (i + 1) * beat, SCALE_MAJ[deg] / 2, beat * 0.55, "triangle", vel(0.38, 0.2)),
+          tone(t0 + (i + 1) * beat, SCALE_MAJ[deg] / 2, beat * 0.55, "triangle", vel(0.32, 0.2)),
         );
       }
 
@@ -210,15 +210,19 @@ export function startGenerator(ctx: AudioContext, out: AudioNode, kind: Generato
       ];
       const motif = motifs[li % motifs.length];
       motif.forEach((deg, i) =>
-        tone(loopStart + 0.5 + i * beat * 1.4, SCALE_MAJ[deg], beat * 1.1, "triangle", vel(0.44, 0.25)),
+        tone(loopStart + beat * (1 + i * 1.5), SCALE_MAJ[deg], beat * 1.2, "triangle", vel(0.42, 0.25)),
       );
 
-      // Der Kuckuck: zwei Toene, fallende kleine Terz (C5 -> A4) - so ruft der
-      // Vogel, und so schlagen die Uhren. Nicht jede Runde, sonst nervt er.
-      if (li % 3 === 2) {
-        const tc = loopStart + 3.6 + Math.random() * 0.8;
-        tone(tc, 523.25, 0.34, "sine", 0.6);
-        tone(tc + 0.42, 440, 0.5, "sine", 0.52);
+      // Der Kuckuck: fallende kleine Terz (C5 -> A4) - so ruft der Vogel, so schlagen
+      // die Uhren. Er war zu leise und zu selten zu erahnen; jetzt jede Runde, doppelt
+      // gerufen wie beim echten Vogel, deutlich ueber dem Begleitsatz. Zwei kurze
+      // Holzschlaege davor kuendigen ihn an wie das Uhrwerk vor der Klappe.
+      const tc = loopStart + beat * 6;
+      hit(tc - beat * 0.5, 0.05, 0.3, 2400, 2.2);
+      for (let call = 0; call < 2; call++) {
+        const t0 = tc + call * beat * 1.6;
+        tone(t0, 523.25, 0.3, "sine", 0.66);
+        tone(t0 + 0.34, 440, 0.42, "sine", 0.56);
       }
     }
 
