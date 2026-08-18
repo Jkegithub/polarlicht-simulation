@@ -27,6 +27,11 @@ const WATER_CONFIG: Record<string, { strength: number; alpha: number }> = {
   // Blick aufs fertige Bild verantworten. Zahl hier hochsetzen, wenn gewuenscht.
   swnebel: { strength: 0, alpha: 255 },
   swoktober: { strength: 0, alpha: 255 },
+  // Spiegelung bleibt aus. Versucht und gemessen: Der Wassererkenner ist auf dunkles
+  // Nachtwasser eingestellt (verlangt L < 110), der Rhein ist helles Tageswasser. Ergebnis
+  // waren 30,5 % Maskenflaeche - aber nicht auf dem Fluss, sondern in dunklen
+  // Vordergrundstellen. Das haette an falscher Stelle gespiegelt. Dafuer braucht es eine
+  // eigene Regel fuer helles Wasser, nicht nur eine Zahl.
   swrhein: { strength: 0, alpha: 255 },
   himmel: { strength: 0, alpha: 0 },
 };
@@ -64,13 +69,33 @@ const SKY_RULE: Partial<Record<SceneId, SkyRule>> = {
   // schon: Himmel 142-167, die Kammlinie faellt auf 127. Das Nebelmeer darunter ist zwar
   // ebenso hell, haengt aber nicht mit dem oberen Rand zusammen.
   swnebel: (_r, _g, _b, L) => L > 132,
-  // Herbsttag: blaeulich oder helle Wolke ist Himmel, warmes Laub und dunkles Nadelholz
-  // nicht. So bleibt die Buche ganz und das Polarlicht scheint zwischen den Blaettern.
-  swoktober: (r, _g, b, L) => b >= r - 6 && L > 95,
-  // Mittagsblau: hier muss die Regel enger sein, sonst verschluckt sie den Kuehlturm und
-  // seine Dampffahne (beide hell, aber nicht blau). Deutlicher Blauueberschuss verlangt.
-  swrhein: (r, _g, b, L) => b > r + 12 && L > 90,
+  // Herbsttag. Ueber die Blaeue laesst sich hier NICHT trennen: Der Schleierwolkenstreifen
+  // bei 12 % Hoehe hat b-r = 2 bei L = 221, die Alpenkette b-r = 15..20 bei L = 216..225 -
+  // praktisch dasselbe. Eine Blau-Schwelle machte den Schleier zur Mauer, an der die
+  // Flutung haengenblieb (Kandidaten in jener Zeile: 8 %), und die Erkennung fiel ganz auf
+  // die gerade Linie zurueck. Also trennt die HELLIGKEIT: Himmel, Dunst und Alpen sind
+  // hell, der Waldkamm darunter nicht (L < 105). Warmes Laub wird ueber b-r ausgenommen,
+  // sonst wanderte die Buchenkrone in den Himmel (ihre Blaetter messen b-r = -126..-156).
+  swoktober: (r, _g, b, L) => L > 130 && b - r > -30,
+  // Mittagsblau. Ebenfalls gemessen: Himmel L = 156..223 bei b-r = 34..51; die Huegel
+  // L = 88..97 (trotz hohem b-r, Schattenblau); der Kuehlturm b-r = 28 bei L = 174; die
+  // Dampffahne b-r = 8. Mit b-r > 32 UND L > 120 bleibt der Himmel Himmel, waehrend
+  // Huegel, Turm und Fahne Landschaft bleiben - die Fahne steht damit sichtbar im Bild.
+  swrhein: (r, _g, b, L) => b - r > 32 && L > 120,
 };
+
+// Nur fuers Nebelmeer: freistehende Inseln im Himmelsbereich beseitigen. Dort sind es
+// dunklere Wolkenbaender, die als undurchsichtige Kloetze im Polarlicht standen - die
+// "Artefakte rechts". Je Spalte gilt als Landbeginn erst die Stelle, ab der es 20 Punkte
+// am Stueck Land bleibt; alles darueber wird Himmel. Bei den beiden anderen Bildern darf
+// das NICHT laufen: Dort sind die Inseln gewollt (Buchenkrone, Dampffahne).
+const CLEAN_SKY_ISLANDS = new Set<SceneId>(["swnebel"]);
+
+// Nur fuers Oktoberbild: Himmelsflecken, die das Astwerk vollstaendig einschliesst, gelten
+// trotzdem als Himmel. Zwischen den Zweigen stand sonst ein blasser Schleierwolkenrest als
+// undurchsichtiger Fleck. Bei den anderen Bildern waere das gefaehrlich - dort ist die
+// groesste eingeschlossene Flaeche der Rhein, und der ist Landschaft.
+const FILL_ENCLOSED_SKY = new Set<SceneId>(["swoktober"]);
 
 // Tiefste Zeile, bis zu der ueberhaupt Himmel sein darf. Ohne diese Grenze laeuft die
 // Flutung an der Silhouette vorbei in die Landschaft: Beim Nebelmeer wurde der Nebel zu
@@ -78,11 +103,14 @@ const SKY_RULE: Partial<Record<SceneId, SkyRule>> = {
 // Rheinbogen der Kuehlturm (der Dunst faerbt ihn blau genug fuer die Regel). Beides waere
 // hinter dem Polarlicht verschwunden. Oberhalb der Grenze folgt die Trennung weiter der
 // Kontur - die Grenze schneidet nichts ab, sie verhindert nur das Ueberlaufen.
+// Sie ist jetzt nur noch Notbremse, nicht mehr die eigentliche Trennung: Die Regeln oben
+// halten Alpen, Turm und Huegel von selbst zurueck, deshalb darf die Grenze bis dicht an
+// die Silhouette reichen. Vorher schnitt sie deutlich zu hoch ab - zwischen Polarlicht und
+// Landschaft blieb ein Streifen ausgewaschener Foto-Himmel stehen.
 const SKY_MAX_DEPTH: Partial<Record<SceneId, number>> = {
-  swnebel: 0.46, // Kamm liegt bei 43 %
-  swoktober: 0.37, // knapp UEBER den Alpengipfeln (ab 39 %) - der Dunst um sie herum
-  //                  erfuellt die Himmelsregel, sonst verschwaende die Kette dahinter
-  swrhein: 0.3, // Huegelkamm 27-30 %, Kuehlturmspitze bei 33 %
+  swnebel: 0.48,
+  swoktober: 0.52, // bis an den dunklen Waldkamm - die Aurora soll ihn erreichen
+  swrhein: 0.42,
 };
 
 const NIGHT_GRADE: Partial<Record<SceneId, number>> = {
@@ -250,12 +278,34 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
       if (y < h - 1 && cand[p + w] && !flood[p + w]) { flood[p + w] = 1; stack.push(p + w); }
     }
 
+    if (FILL_ENCLOSED_SKY.has(id)) {
+      for (let p = 0; p < cand.length; p++) if (cand[p]) flood[p] = 1;
+    }
+
     // Notbremse: Faellt die Erkennung offensichtlich um - fast alles oder fast nichts
     // Himmel -, dann lieber die feste Linie als ein zerrissenes Bild.
     let n = 0;
     for (let p = 0; p < flood.length; p++) n += flood[p];
     const share = n / (w * h);
     if (share > 0.05 && share < 0.95) skyPixel = flood;
+
+    // Inseln raeumen (nur wo erlaubt): erst ab 20 zusammenhaengenden Landpunkten gilt die
+    // Landschaft als begonnen, alles darueber wird Himmel.
+    if (skyPixel && CLEAN_SKY_ISLANDS.has(id)) {
+      const run = 20;
+      for (let x = 0; x < w; x++) {
+        let start = h;
+        for (let y = 0; y < h - run; y++) {
+          if (skyPixel[y * w + x] === 1) continue;
+          let solid = true;
+          for (let k = 1; k < run; k++) {
+            if (skyPixel[(y + k) * w + x] === 1) { solid = false; break; }
+          }
+          if (solid) { start = y; break; }
+        }
+        for (let y = 0; y < start; y++) skyPixel[y * w + x] = 1;
+      }
+    }
   }
 
   // Horizontlinie aus der Silhouette nachziehen: oberster Landpunkt je Spalte. Der
@@ -347,6 +397,8 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
       left = 0; right = w - 1;
     } else if (id === "huette") {
       left = Math.round(w * 0.12); right = w - 1;
+    } else if (id === "swrhein") {
+      left = 0; right = w - 1; // der Fluss zieht sich ueber die ganze Breite
     } else {
       left = 0; right = -1; // no water
     }

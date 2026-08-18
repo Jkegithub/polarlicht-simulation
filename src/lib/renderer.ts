@@ -2,6 +2,13 @@ import { Settings } from "../types";
 import { AudioLevels } from "./audio";
 import { fbm1, fbm2, hash1, hexToRgb, mixRgb, rgba, valueNoise1 } from "./noise";
 import { getCached, loadScenery, Scenery } from "./scenery";
+import moonUrl from "../assets/moon-nasa.jpg";
+
+// Einmal je Seitenaufruf geladen. Bis es da ist, zeichnet paintMoon seine eigene Scheibe -
+// der Mond fehlt also in keinem Einzelbild, er wird nur kurz schlichter.
+const MOON_IMG = new Image();
+MOON_IMG.decoding = "async";
+MOON_IMG.src = moonUrl;
 
 export interface Metrics {
   intensity: number;
@@ -512,12 +519,16 @@ export class AuroraRenderer {
     if (amount <= 0.01) return;
     const { ctx, W, H } = this;
     const x = W * 0.78;
-    const r = Math.max(9, W * 0.013 + amount * W * 0.019);
+    // Doppelte Groesse gegenueber der ersten Fassung.
+    const r = Math.max(14, W * 0.026 + amount * W * 0.038);
     // Tiefer gestellt: 25 % statt 17 % Bildhoehe. Aber niemals so tief, dass ihn die
     // Landschaft anschneidet - bei Szenen mit hoher Silhouette (Rheinbogen: Kamm bei
     // 25 %) weicht er nach oben aus und bleibt ueber dem Horizont dieser Spalte.
+    // Untergrenze zusaetzlich abgefangen: Im Oktoberbild reicht die Buchenkrone bis an den
+    // oberen Bildrand, dort ist horizonAt(x) gleich 0 - ohne das Max rutschte der Mond aus
+    // dem Bild. Steht er dann hinter Zweigen, ist das richtig so.
     const hz = this.horizonAt(x);
-    const y = Math.min(H * 0.25, hz - r * 2.2);
+    const y = Math.max(H * 0.1, Math.min(H * 0.25, hz - r * 2.2));
 
     ctx.save();
     // Hof: weit, weich, sehr schwach - sonst frisst er die Sterne ringsum
@@ -530,11 +541,22 @@ export class AuroraRenderer {
     ctx.arc(x, y, r * 9, 0, TAU);
     ctx.fill();
 
-    // Scheibe. Die Deckkraft haengt bewusst NICHT linear am Regler: Bei Stufe 55 war der
-    // Mond sonst halbdurchsichtig (gemessener Median 133 statt 223), und auf einer blassen
-    // Scheibe ist kein Krater zu sehen - er kann nicht dunkler wirken als der Untergrund
-    // hergibt. Der Regler steuert vor allem die Groesse; sichtbar wird der Mond schnell.
+    // Die Deckkraft haengt bewusst NICHT linear am Regler: Bei Stufe 55 war der Mond sonst
+    // halbdurchsichtig (gemessener Median 133 statt 223), und auf blasser Scheibe ist kein
+    // Krater zu sehen. Der Regler steuert vor allem die Groesse.
     const op = Math.min(1, 0.45 + amount * 0.8);
+
+    // Echtes Mondbild, sobald es geladen ist: NASA/GSFC, aus LRO-Daten gerechnete
+    // Darstellung des Vollmonds - gemeinfrei als Werk einer US-Bundesbehoerde.
+    // Der Hintergrund des Bildes ist schwarz, deshalb wird es additiv gezeichnet: Schwarz
+    // traegt nichts bei, es braucht keinen Freistellungskanal und keine weiche Kante.
+    if (MOON_IMG.complete && MOON_IMG.naturalWidth > 0) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = op;
+      ctx.drawImage(MOON_IMG, x - r, y - r, r * 2, r * 2);
+      ctx.restore();
+      return;
+    }
     const disc = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
     disc.addColorStop(0, `rgba(255,255,252,${0.97 * op})`);
     disc.addColorStop(0.7, `rgba(232,240,255,${0.93 * op})`);
