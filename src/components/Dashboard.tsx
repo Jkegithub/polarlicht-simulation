@@ -190,7 +190,7 @@ export default function Dashboard(props: Props) {
           <Donut dist={metrics.distribution} palette={settings.palette} />
         </Card>
 
-        <Card title="Oval Form" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink">
+        <Card title="Oval-Form · nur Anzeige" className="w-[72vw] max-w-60 shrink-0 snap-start lg:w-auto lg:max-w-none lg:shrink">
           <svg viewBox="0 0 150 74" className="h-[54px] w-full">
             <g transform={`translate(75 37) rotate(${tilt})`}>
               {[1, 0.72, 0.46, 0.24].map((k, i) => (
@@ -208,8 +208,9 @@ export default function Dashboard(props: Props) {
             </g>
           </svg>
           <div className="mt-1 text-center text-[10px] leading-tight text-slate-400">
-            Breite: {ovalWidth}%<br />
-            Neigung: {tilt}°
+            Breite {ovalWidth}% — aus „Aktivität“
+            <br />
+            Neigung {tilt}° — aus Richtung und „Bewegung“
           </div>
         </Card>
 
