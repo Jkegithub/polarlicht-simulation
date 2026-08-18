@@ -512,8 +512,12 @@ export class AuroraRenderer {
     if (amount <= 0.01) return;
     const { ctx, W, H } = this;
     const x = W * 0.78;
-    const y = H * 0.17;
-    const r = Math.max(6, W * 0.009 + amount * W * 0.013);
+    const r = Math.max(9, W * 0.013 + amount * W * 0.019);
+    // Tiefer gestellt: 25 % statt 17 % Bildhoehe. Aber niemals so tief, dass ihn die
+    // Landschaft anschneidet - bei Szenen mit hoher Silhouette (Rheinbogen: Kamm bei
+    // 25 %) weicht er nach oben aus und bleibt ueber dem Horizont dieser Spalte.
+    const hz = this.horizonAt(x);
+    const y = Math.min(H * 0.25, hz - r * 2.2);
 
     ctx.save();
     // Hof: weit, weich, sehr schwach - sonst frisst er die Sterne ringsum
@@ -526,29 +530,43 @@ export class AuroraRenderer {
     ctx.arc(x, y, r * 9, 0, TAU);
     ctx.fill();
 
-    // Scheibe
+    // Scheibe. Die Deckkraft haengt bewusst NICHT linear am Regler: Bei Stufe 55 war der
+    // Mond sonst halbdurchsichtig (gemessener Median 133 statt 223), und auf einer blassen
+    // Scheibe ist kein Krater zu sehen - er kann nicht dunkler wirken als der Untergrund
+    // hergibt. Der Regler steuert vor allem die Groesse; sichtbar wird der Mond schnell.
+    const op = Math.min(1, 0.45 + amount * 0.8);
     const disc = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
-    disc.addColorStop(0, `rgba(255,255,252,${0.97 * amount})`);
-    disc.addColorStop(0.7, `rgba(232,240,255,${0.93 * amount})`);
-    disc.addColorStop(1, `rgba(198,214,244,${0.85 * amount})`);
+    disc.addColorStop(0, `rgba(255,255,252,${0.97 * op})`);
+    disc.addColorStop(0.7, `rgba(232,240,255,${0.93 * op})`);
+    disc.addColorStop(1, `rgba(198,214,244,${0.85 * op})`);
     ctx.fillStyle = disc;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, TAU);
     ctx.fill();
 
-    // Ein paar Krater, damit die Scheibe kein Aufkleber ist. Feste Lage, kein Zufall:
-    // ein flackernder Mond waere sofort aufgefallen.
-    ctx.globalAlpha = 0.1 * amount;
-    ctx.fillStyle = "#7f8bab";
-    const craters: [number, number, number][] = [
-      [-0.28, -0.12, 0.22],
-      [0.18, 0.26, 0.16],
-      [0.3, -0.34, 0.11],
-      [-0.1, 0.42, 0.1],
+    // Maria und Krater. Erste Fassung lag bei 10 % Deckkraft auf einer 19-Pixel-Scheibe
+    // und war schlicht unsichtbar - jetzt deutlich dunkler, groesser und mit weichem Rand,
+    // damit sie als Mondflecken lesbar sind und nicht als Schmutz. Feste Lage, kein
+    // Zufall: ein flackernder Mond faellt sofort auf.
+    // Deckkraft gemessen nachgezogen: mit 0,2-0,34 ergaben die Flecken nur 23
+    // Helligkeitsstufen Unterschied auf der Scheibe - zu wenig, um sie zu sehen.
+    const craters: [number, number, number, number][] = [
+      [-0.3, -0.16, 0.3, 0.74],
+      [0.2, 0.28, 0.24, 0.66],
+      [0.34, -0.3, 0.16, 0.56],
+      [-0.12, 0.44, 0.15, 0.5],
+      [0.02, -0.02, 0.19, 0.44],
     ];
-    for (const [cx, cy, cr] of craters) {
+    for (const [cx, cy, cr, cop] of craters) {
+      const gx = x + cx * r;
+      const gy = y + cy * r;
+      const cg = ctx.createRadialGradient(gx, gy, 0, gx, gy, cr * r);
+      cg.addColorStop(0, `rgba(96,110,146,${op * cop})`);
+      cg.addColorStop(0.62, `rgba(112,126,160,${op * 0.75 * cop})`);
+      cg.addColorStop(1, "rgba(120,134,168,0)");
+      ctx.fillStyle = cg;
       ctx.beginPath();
-      ctx.arc(x + cx * r, y + cy * r, cr * r, 0, TAU);
+      ctx.arc(gx, gy, cr * r, 0, TAU);
       ctx.fill();
     }
     ctx.restore();

@@ -47,12 +47,43 @@ const HORIZON_HINT: Partial<Record<SceneId, number>> = {
   swrhein: 0.25, // knapp ueber dem Huegelkamm, der Kuehlturm bleibt darunter
 };
 
-// Bilder, bei denen ein Vordergrund bis in den Himmel ragt. Eine waagerechte Linie
-// wuerde ihn durchschneiden - im Oktoberbild zerschnitt sie den Buchenbaum. Oberhalb
-// der Linie entscheidet hier deshalb die FARBE: Himmel ist blaeulich oder helle Wolke,
-// Herbstlaub ist warm, Nadelholz ist dunkel. So bleibt der Baum ganz und das Polarlicht
-// scheint durch die Luecken zwischen den Blaettern.
-const SKY_BY_COLOR = new Set<SceneId>(["swoktober"]);
+// Echte Himmelserkennung fuer die drei Fotoszenen: Die Trennung zwischen Polarlicht und
+// Landschaft soll der Silhouette folgen - Kamm, Huegel, Baum -, nicht einer waagerechten
+// Linie. Zwei Schritte: erst je Bildpunkt entscheiden, ob er Himmel SEIN KOENNTE, dann
+// vom oberen Bildrand aus fluten. Nur was mit dem oberen Rand zusammenhaengt, ist Himmel.
+//
+// Das Fluten ist der wichtige Teil. Ohne es waere jede blaue Wasserflaeche Himmel (der
+// Rhein!) und jede helle Stelle ein Loch in der Landschaft - genau der "Riss", der vorher
+// durchs Wasser lief. Mit ihm bleibt unten alles geschlossen, weil es vom Kamm abgeriegelt
+// wird.
+//
+// Je Bild eine eigene Regel, weil die drei Himmel nichts gemeinsam haben:
+type SkyRule = (r: number, g: number, b: number, L: number) => boolean;
+const SKY_RULE: Partial<Record<SceneId, SkyRule>> = {
+  // Abendhimmel ueber dem Nebelmeer ist warm bis weiss - Farbe hilft nicht, Helligkeit
+  // schon: Himmel 142-167, die Kammlinie faellt auf 127. Das Nebelmeer darunter ist zwar
+  // ebenso hell, haengt aber nicht mit dem oberen Rand zusammen.
+  swnebel: (_r, _g, _b, L) => L > 132,
+  // Herbsttag: blaeulich oder helle Wolke ist Himmel, warmes Laub und dunkles Nadelholz
+  // nicht. So bleibt die Buche ganz und das Polarlicht scheint zwischen den Blaettern.
+  swoktober: (r, _g, b, L) => b >= r - 6 && L > 95,
+  // Mittagsblau: hier muss die Regel enger sein, sonst verschluckt sie den Kuehlturm und
+  // seine Dampffahne (beide hell, aber nicht blau). Deutlicher Blauueberschuss verlangt.
+  swrhein: (r, _g, b, L) => b > r + 12 && L > 90,
+};
+
+// Tiefste Zeile, bis zu der ueberhaupt Himmel sein darf. Ohne diese Grenze laeuft die
+// Flutung an der Silhouette vorbei in die Landschaft: Beim Nebelmeer wurde der Nebel zu
+// Himmel (er beruehrt seitlich am Kamm vorbei den Abendhimmel und ist genauso hell), beim
+// Rheinbogen der Kuehlturm (der Dunst faerbt ihn blau genug fuer die Regel). Beides waere
+// hinter dem Polarlicht verschwunden. Oberhalb der Grenze folgt die Trennung weiter der
+// Kontur - die Grenze schneidet nichts ab, sie verhindert nur das Ueberlaufen.
+const SKY_MAX_DEPTH: Partial<Record<SceneId, number>> = {
+  swnebel: 0.46, // Kamm liegt bei 43 %
+  swoktober: 0.37, // knapp UEBER den Alpengipfeln (ab 39 %) - der Dunst um sie herum
+  //                  erfuellt die Himmelsregel, sonst verschwaende die Kette dahinter
+  swrhein: 0.3, // Huegelkamm 27-30 %, Kuehlturmspitze bei 33 %
+};
 
 const NIGHT_GRADE: Partial<Record<SceneId, number>> = {
   swnebel: 0.62, // schon Daemmerung, braucht am wenigsten
@@ -186,20 +217,55 @@ function process(id: SceneId, img: CanvasImageSource, w: number, h: number): Sce
     for (let x = 0; x < w; x++) horizon[x] = flat;
   }
 
-  // Himmelsentscheidung je Bildpunkt statt je Spalte - nur fuer Bilder in SKY_BY_COLOR.
-  // Unterhalb der Linie ist immer Land, darueber entscheidet die Farbe.
-  const skyPixel = SKY_BY_COLOR.has(id) ? new Uint8Array(w * h) : null;
-  if (skyPixel) {
-    const lineY = Math.floor(h * (HORIZON_HINT[id] ?? 0.4));
-    for (let y = 0; y < lineY; y++) {
+  // Himmel je Bildpunkt: Kandidaten nach Bildregel, dann vom oberen Rand aus fluten.
+  const rule = SKY_RULE[id];
+  let skyPixel: Uint8Array | null = null;
+  if (rule) {
+    const cand = new Uint8Array(w * h);
+    const maxY = Math.floor(h * (SKY_MAX_DEPTH[id] ?? 0.5));
+    for (let y = 0; y < maxY; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
-        const rV = d[i];
-        const bV = d[i + 2];
-        const L = lum(d, i);
-        // blau im Vorteil oder helle Wolke - und heller als jedes Blattwerk
-        if (bV >= rV - 6 && L > 95) skyPixel[y * w + x] = 1;
+        if (rule(d[i], d[i + 1], d[i + 2], lum(d, i))) cand[y * w + x] = 1;
       }
+    }
+
+    // Flutung mit eigenem Stapel statt Rekursion - bei 1920x1116 waere der Aufrufstapel
+    // sonst laengst uebergelaufen.
+    const flood = new Uint8Array(w * h);
+    const stack: number[] = [];
+    for (let x = 0; x < w; x++) {
+      if (cand[x] && !flood[x]) {
+        flood[x] = 1;
+        stack.push(x);
+      }
+    }
+    while (stack.length) {
+      const p = stack.pop()!;
+      const x = p % w;
+      const y = (p - x) / w;
+      if (x > 0 && cand[p - 1] && !flood[p - 1]) { flood[p - 1] = 1; stack.push(p - 1); }
+      if (x < w - 1 && cand[p + 1] && !flood[p + 1]) { flood[p + 1] = 1; stack.push(p + 1); }
+      if (y > 0 && cand[p - w] && !flood[p - w]) { flood[p - w] = 1; stack.push(p - w); }
+      if (y < h - 1 && cand[p + w] && !flood[p + w]) { flood[p + w] = 1; stack.push(p + w); }
+    }
+
+    // Notbremse: Faellt die Erkennung offensichtlich um - fast alles oder fast nichts
+    // Himmel -, dann lieber die feste Linie als ein zerrissenes Bild.
+    let n = 0;
+    for (let p = 0; p < flood.length; p++) n += flood[p];
+    const share = n / (w * h);
+    if (share > 0.05 && share < 0.95) skyPixel = flood;
+  }
+
+  // Horizontlinie aus der Silhouette nachziehen: oberster Landpunkt je Spalte. Der
+  // Renderer braucht sie fuer Horizontleuchten und Wasserkante - stuende dort noch die
+  // gerade Linie, saesse das Leuchten neben dem Kamm statt auf ihm.
+  if (skyPixel) {
+    for (let x = 0; x < w; x++) {
+      let y = 0;
+      while (y < h && skyPixel[y * w + x] === 1) y++;
+      horizon[x] = y;
     }
   }
 
